@@ -1,39 +1,270 @@
 """
 charts/multivariate.py
 
-Multivariate Analysis module for the NIRF Interactive Analytics Dashboard.
-Implements Annexure A, Section 5 – Questions 5.1 through 5.5.
+Multivariate visualizations for NIRF ranking data -- combined module.
 
-Each question is implemented as:
-  - A data/computation helper function  (mv_<n>_...) in SECTION A
-  - A plotting function                 (q5_<n>_...) in SECTION B, returning (fig, df)
-  - Assembled into render_multivariate_tab(df)      in SECTION C
+Teammate functions (registry.py-compatible, return (fig, takeaway_str)):
+  - plot_top5_radar            : Top-5 radar/spider chart
+  - plot_quadrant_analysis     : 4-quadrant scatter (High X vs Low Y)
+  - plot_strongest_weakest_gap : Largest parameter gap horizontal bar
 
-Teammates only need to import and call render_multivariate_tab(df).
+Praneeth's Section 5 -- Annexure A, Q5.1-Q5.5 (return (fig, df)):
+  - q5_1_top5_radar            : Q5.1 radar + grouped bar
+  - q5_2_research_vs_teaching  : Q5.2 scatter quadrant
+  - q5_3_teaching_vs_perception: Q5.3 scatter quadrant
+  - q5_4_improvement_heatmap   : Q5.4 score improvement heatmap/bar
+  - q5_5_param_spread          : Q5.5 largest param gap spread
+  - render_multivariate_tab    : Main Streamlit entry point (import this)
 
-Author : [your name]
+Author : Praneeth + Teammates
 Team   : NIRF Dashboard Project
 """
 
-from __future__ import annotations
-
+from typing import Tuple, List, Optional
 import pandas as pd
 import numpy as np
 import plotly.graph_objects as go
-from typing import Optional, Tuple, List
-
 from charts.theme import (
     apply_theme,
+    QUALITATIVE_PALETTE,
     PALETTE,
-    DARK_BG,
-    PANEL_BG,
-    GRID_COLOR,
-    TEXT_COLOR,
+    LINE_COLOR,
     MUTED_TEXT,
+    TEXT_COLOR,
+    PANEL_BG,
+    DARK_BG,
+    GRID_COLOR,
     ACCENT_GREEN,
     ACCENT_RED,
-    LINE_COLOR,
 )
+
+PARAMETERS = ["TLR", "RPC", "GO", "OI", "PR"]
+PARAM_LABELS = {
+    "TLR": "Teaching & Resources (TLR)",
+    "RPC": "Research & Practice (RPC)",
+    "GO": "Graduation Outcomes (GO)",
+    "OI": "Outreach & Inclusivity (OI)",
+    "PR": "Perception (PR)",
+}
+
+
+def plot_top5_radar(
+    df: pd.DataFrame,
+    year: int = 2024,
+    category: str = "Overall",
+    top_n: int = 5,
+) -> Tuple[go.Figure, str]:
+    """
+    Question: How do the top 5 institutions compare across all five NIRF parameters simultaneously?
+    Renders an interactive Radar / Spider chart.
+    """
+    sub = df[(df["year"] == year) & (df["category"] == category) & (df["rank"] <= top_n)].sort_values(by="rank")
+
+    if sub.empty:
+        fig = go.Figure()
+        return apply_theme(fig, title=f"No data for {category} in {year}"), "No records found."
+
+    available_params = [p for p in PARAMETERS if p in sub.columns]
+    # Close the radar loop by repeating the first parameter
+    radar_params = available_params + [available_params[0]]
+
+    fig = go.Figure()
+
+    for idx, (_, row) in enumerate(sub.iterrows()):
+        color = QUALITATIVE_PALETTE[idx % len(QUALITATIVE_PALETTE)]
+        vals = [row[p] for p in available_params] + [row[available_params[0]]]
+
+        short_name = (
+            row["name"]
+            .replace("Indian Institute of Technology", "IIT")
+            .replace("National Institute of Technology", "NIT")
+            .replace("Indian Institute of Science", "IISc")
+            .replace("Indian Institute of Management", "IIM")
+        )
+
+        fig.add_trace(
+            go.Scatterpolar(
+                r=vals,
+                theta=radar_params,
+                fill="toself",
+                fillcolor=f"rgba({int(color[1:3], 16)}, {int(color[3:5], 16)}, {int(color[5:7], 16)}, 0.12)",
+                line=dict(color=color, width=2.5),
+                name=f"#{int(row['rank'])} {short_name}",
+                hovertemplate="<b>%{theta}</b>: %{r:.1f}<extra></extra>",
+            )
+        )
+
+    fig.update_layout(
+        polar=dict(
+            radialaxis=dict(
+                visible=True,
+                range=[0, 100],
+                gridcolor="#262a33",
+                tickfont=dict(color=MUTED_TEXT, size=9),
+            ),
+            angularaxis=dict(
+                gridcolor="#262a33",
+                linecolor="#262a33",
+                tickfont=dict(color=TEXT_COLOR, size=11, family="Inter, sans-serif"),
+            ),
+            bgcolor=PANEL_BG,
+        ),
+        paper_bgcolor=DARK_BG,
+        plot_bgcolor=PANEL_BG,
+        font=dict(color=TEXT_COLOR, family="Inter, sans-serif"),
+        title=dict(
+            text=f"Top {top_n} Institutions Across 5 Parameters ({year}, {category})",
+            font=dict(size=15, color=TEXT_COLOR),
+            x=0.05,
+            y=0.96,
+        ),
+        margin=dict(l=60, r=40, t=60, b=60),
+        showlegend=True,
+        legend=dict(
+            bgcolor="rgba(22, 24, 30, 0.85)",
+            bordercolor="#262a33",
+            font=dict(color=TEXT_COLOR, size=10),
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+        ),
+    )
+
+    top1 = sub.iloc[0]
+    best_param = top1.get("best_param", "RPC")
+    takeaway = f"Rank #1 {top1['name']} shows highest strength in {best_param} ({top1.get(best_param, 0):.1f}/100) while Perception (PR) creates the widest variance among peers."
+    return fig, takeaway
+
+
+def plot_quadrant_analysis(
+    df: pd.DataFrame,
+    x_col: str = "TLR",
+    y_col: str = "RPC",
+    year: int = 2024,
+    category: str = "Overall",
+) -> Tuple[go.Figure, str]:
+    """
+    Question: Which institutions exhibit high research performance but relatively low teaching scores (or vice versa)?
+    Renders a 4-quadrant scatter plot partitioned at median values.
+    """
+    sub = df[(df["year"] == year) & (df["category"] == category) & df[x_col].notna() & df[y_col].notna()].copy()
+
+    if len(sub) < 5:
+        fig = go.Figure()
+        return apply_theme(fig, title="Insufficient quadrant data"), "Need at least 5 points."
+
+    x_med = sub[x_col].median()
+    y_med = sub[y_col].median()
+
+    # Determine quadrant
+    def assign_quadrant(row):
+        if row[x_col] >= x_med and row[y_col] >= y_med:
+            return "High Both (Q1)"
+        elif row[x_col] < x_med and row[y_col] >= y_med:
+            return f"High {y_col}, Low {x_col} (Q2)"
+        elif row[x_col] < x_med and row[y_col] < y_med:
+            return "Lower Both (Q3)"
+        else:
+            return f"High {x_col}, Low {y_col} (Q4)"
+
+    sub["Quadrant"] = sub.apply(assign_quadrant, axis=1)
+
+    fig = go.Figure()
+
+    quad_colors = {
+        "High Both (Q1)": "#10b981",  # Green
+        f"High {y_col}, Low {x_col} (Q2)": "#38bdf8",  # Sky Blue
+        "Lower Both (Q3)": MUTED_TEXT,  # Grey
+        f"High {x_col}, Low {y_col} (Q4)": "#f97316",  # Orange
+    }
+
+    for quad, color in quad_colors.items():
+        q_data = sub[sub["Quadrant"] == quad]
+        if not q_data.empty:
+            fig.add_trace(
+                go.Scatter(
+                    x=q_data[x_col],
+                    y=q_data[y_col],
+                    mode="markers",
+                    name=quad,
+                    marker=dict(color=color, size=8, opacity=0.8, line=dict(width=1, color="#0f1013")),
+                    text=q_data["name"],
+                    hovertemplate="<b>%{text}</b><br>" + f"{x_col}: " + "%{x:.1f}<br>" + f"{y_col}: " + "%{y:.1f}<extra></extra>",
+                )
+            )
+
+    # Reference median dividing lines
+    fig.add_vline(x=x_med, line_dash="dash", line_color="#30363d", annotation_text=f"Median {x_col}: {x_med:.1f}")
+    fig.add_hline(y=y_med, line_dash="dash", line_color="#30363d", annotation_text=f"Median {y_col}: {y_med:.1f}")
+
+    fig = apply_theme(
+        fig,
+        title=f"Quadrant Analysis: {x_col.upper()} vs {y_col.upper()} ({year}, {category})",
+        xaxis_title=f"{x_col.upper()} (Teaching/Input)",
+        yaxis_title=f"{y_col.upper()} (Research/Output)",
+        show_legend=True,
+    )
+
+    q2_count = len(sub[sub["Quadrant"] == f"High {y_col}, Low {x_col} (Q2)"])
+    q4_count = len(sub[sub["Quadrant"] == f"High {x_col}, Low {y_col} (Q4)"])
+    takeaway = f"{q2_count} institutions feature high research with below-median teaching, while {q4_count} excel in teaching but lag in research output."
+    return fig, takeaway
+
+
+def plot_strongest_weakest_gap(
+    df: pd.DataFrame,
+    year: int = 2024,
+    category: str = "Overall",
+    top_n: int = 10,
+) -> Tuple[go.Figure, str]:
+    """
+    Question: Which institutions have the largest gap between their strongest and weakest parameter?
+    Renders horizontal bar chart of param_gap (max parameter - min parameter).
+    """
+    sub = df[(df["year"] == year) & (df["category"] == category) & df["param_gap"].notna()].copy()
+    if sub.empty:
+        fig = go.Figure()
+        return apply_theme(fig, title="No parameter gap data"), "No records found."
+
+    top_gaps = sub.sort_values(by="param_gap", ascending=False).head(top_n).sort_values(by="param_gap", ascending=True)
+
+    fig = go.Figure(
+        go.Bar(
+            y=top_gaps["name"],
+            x=top_gaps["param_gap"].round(1),
+            orientation="h",
+            marker=dict(color=LINE_COLOR),
+            hovertemplate=(
+                "<b>%{y}</b><br>"
+                + "Gap: %{x:.1f} pts<br>"
+                + "Strongest: %{customdata[0]}<br>"
+                + "Weakest: %{customdata[1]}<extra></extra>"
+            ),
+            customdata=list(zip(top_gaps["best_param"], top_gaps["worst_param"])),
+        )
+    )
+
+    fig = apply_theme(
+        fig,
+        title=f"Largest Parameter Imbalance (Strongest vs Weakest, {year}, {category})",
+        xaxis_title="Parameter Gap (Max Param - Min Param in Points)",
+        yaxis_title="",
+    )
+
+    max_gap_inst = top_gaps.iloc[-1]
+    takeaway = (
+        f"Largest disparity: {max_gap_inst['name']} has a {max_gap_inst['param_gap']:.1f} pt gap "
+        f"({max_gap_inst['best_param']} vs {max_gap_inst['worst_param']})."
+    )
+    return fig, takeaway
+
+
+# ===========================================================================
+# SECTION 5 -- Praneeth's Multivariate Analysis (Annexure A, Q5.1-Q5.5)
+# ===========================================================================
+
 
 # ---------------------------------------------------------------------------
 # Module-level constants
@@ -57,8 +288,8 @@ PARAM_MAX: dict[str, float] = {p: 100.0 for p in NIRF_PARAMS}
 
 
 # ===========================================================================
-# SECTION A — DATA / COMPUTATION HELPERS
-# (Pure functions — no Streamlit imports. Safe to unit-test independently.)
+# SECTION A -- DATA / COMPUTATION HELPERS
+# (Pure functions -- no Streamlit imports. Safe to unit-test independently.)
 # ===========================================================================
 
 def mv_filter(
@@ -74,10 +305,10 @@ def mv_filter(
     Parameters
     ----------
     df           : Full NIRF DataFrame (output of load_nirf_data()).
-    year         : Single year integer to keep. None → all years.
-    category     : Category string (e.g. "Overall", "Engineering"). None → all.
-    states       : List of state names. None → all states.
-    institutions : List of institution names. None → all institutions.
+    year         : Single year integer to keep. None -> all years.
+    category     : Category string (e.g. "Overall", "Engineering"). None -> all.
+    states       : List of state names. None -> all states.
+    institutions : List of institution names. None -> all institutions.
 
     Returns
     -------
@@ -119,7 +350,7 @@ def mv_note_missing_params(available: List[str]) -> Optional[str]:
     if not missing:
         return None
     return (
-        f"⚠️ Parameters **{', '.join(missing)}** are not available for the "
+        f"\u26a0\ufe0f Parameters **{', '.join(missing)}** are not available for the "
         "selected category / year (Research or rank-only categories do not "
         "publish these scores). Analysis uses only the available parameters."
     )
@@ -187,8 +418,8 @@ def mv_2_quadrant_data(
     Parameters
     ----------
     x_param / y_param  : Column names for the two axes.
-    x_threshold        : Vertical divider position. None → median of x_param.
-    y_threshold        : Horizontal divider position. None → median of y_param.
+    x_threshold        : Vertical divider position. None -> median of x_param.
+    y_threshold        : Horizontal divider position. None -> median of y_param.
 
     Returns
     -------
@@ -201,7 +432,7 @@ def mv_2_quadrant_data(
 
     if x_param not in available or y_param not in available:
         return pd.DataFrame(), 50.0, 50.0, (
-            f"⚠️ Parameters **{x_param}** and/or **{y_param}** are not available "
+            f"\u26a0\ufe0f Parameters **{x_param}** and/or **{y_param}** are not available "
             "for the selected category / year."
         )
 
@@ -226,15 +457,15 @@ def mv_4_improvement_data(
     params: Optional[List[str]] = None,
 ) -> Tuple[pd.DataFrame, Optional[str]]:
     """
-    Identifies institutions whose overall score INCREASED from year1 → year2
+    Identifies institutions whose overall score INCREASED from year1 -> year2
     but had at least one sub-parameter DECREASE.
 
     Methodology
     -----------
     1. Subset data for year1 and year2 separately.
     2. Inner-merge on institution name (only institutions present in both years).
-    3. Compute Δscore = score_y2 - score_y1  and  Δparam = param_y2 - param_y1.
-    4. Keep rows where Δscore > 0 AND any(Δparam < 0).
+    3. Compute ?score = score_y2 - score_y1  and  ?param = param_y2 - param_y1.
+    4. Keep rows where ?score > 0 AND any(?param < 0).
     5. Annotate with n_declined (count of declining params) and
        strongest_decline (the param with the largest negative change).
 
@@ -299,7 +530,7 @@ def mv_4_improvement_data(
 
     if result.empty:
         return pd.DataFrame(), (
-            "No institutions satisfy the criteria (score up + ≥1 param down) "
+            "No institutions satisfy the criteria (score up + >=1 param down) "
             "for the selected years and category."
         )
 
@@ -337,7 +568,7 @@ def mv_5_spread_data(
 
     Methodology
     -----------
-    Normalisation: each raw parameter score is divided by PARAM_MAX[param] × 100.
+    Normalisation: each raw parameter score is divided by PARAM_MAX[param] * 100.
     Since all NIRF standard parameters are scored out of 100, this is a no-op for
     the standard set, but it makes the function correct if NIRF ever changes
     the scale or if a custom param list is passed.
@@ -357,14 +588,14 @@ def mv_5_spread_data(
 
     if len(available) < 2:
         return pd.DataFrame(), (
-            "⚠️ At least 2 parameters are required to compute a spread. "
+            "\u26a0\ufe0f At least 2 parameters are required to compute a spread. "
             "The selected category / year has fewer than 2 available parameters."
         )
 
     keep = ["name", "state", "rank_num"] + available
     sub = sub.dropna(subset=available)[keep].copy()
 
-    # Normalise each parameter to a 0–100 scale
+    # Normalise each parameter to a 0-100 scale
     norm_cols: List[str] = []
     for p in available:
         col = f"{p}_norm"
@@ -388,7 +619,7 @@ def mv_5_spread_data(
 
 
 # ===========================================================================
-# SECTION B — PLOTTING FUNCTIONS
+# SECTION B -- PLOTTING FUNCTIONS
 # (Each returns (plotly_figure, dataframe). No Streamlit calls here.)
 # ===========================================================================
 
@@ -400,7 +631,7 @@ def q5_1_top5_radar(
     params: Optional[List[str]] = None,
 ) -> Tuple[go.Figure, pd.DataFrame]:
     """
-    Q5.1 — Radar (spider) chart comparing the top-5 institutions across all
+    Q5.1 -- Radar (spider) chart comparing the top-5 institutions across all
     available NIRF parameters for a chosen year and category.
 
     Analytical rationale
@@ -426,15 +657,15 @@ def q5_1_top5_radar(
     fig = go.Figure()
 
     if top5_df.empty:
-        apply_theme(fig, title=f"Top-5 Radar — {category} ({year})")
+        apply_theme(fig, title=f"Top-5 Radar -- {category} ({year})")
         return fig, top5_df
 
     available = [p for p in (params or NIRF_PARAMS) if p in top5_df.columns]
 
     if show_bar:
-        # ── Grouped bar chart (alternative view) ──────────────────────────
+        # ?? Grouped bar chart (alternative view) ??????????????????????????
         for _, row in top5_df.iterrows():
-            short = row["name"][:40] + ("…" if len(row["name"]) > 40 else "")
+            short = row["name"][:40] + ("..." if len(row["name"]) > 40 else "")
             fig.add_trace(go.Bar(
                 name=short,
                 x=available,
@@ -447,7 +678,7 @@ def q5_1_top5_radar(
             ))
         apply_theme(
             fig,
-            title=f"Top-5 Institutions — Parameter Scores | {category} · {year}",
+            title=f"Top-5 Institutions -- Parameter Scores | {category} · {year}",
             xaxis_title="NIRF Parameter",
             yaxis_title="Score (out of 100)",
             show_legend=True,
@@ -455,13 +686,13 @@ def q5_1_top5_radar(
         fig.update_layout(barmode="group")
 
     else:
-        # ── Radar / spider chart ───────────────────────────────────────────
+        # ?? Radar / spider chart ???????????????????????????????????????????
         # Close the polygon by repeating the first param at the end
         radar_params = available + [available[0]]
 
         for i, (_, row) in enumerate(top5_df.iterrows()):
             values    = [row[p] for p in available] + [row[available[0]]]
-            short     = row["name"][:35] + ("…" if len(row["name"]) > 35 else "")
+            short     = row["name"][:35] + ("..." if len(row["name"]) > 35 else "")
             hex_col   = PALETTE[i % len(PALETTE)]
             r_val, g_val, b_val = (
                 int(hex_col[1:3], 16),
@@ -504,7 +735,7 @@ def q5_1_top5_radar(
             font=dict(color=TEXT_COLOR, family="Inter, system-ui, sans-serif"),
             title=dict(
                 text=(
-                    f"Top-5 Institutions — NIRF Parameter Radar "
+                    f"Top-5 Institutions -- NIRF Parameter Radar "
                     f"| {category} · {year}"
                 ),
                 x=0.05, y=0.97, xanchor="left",
@@ -532,13 +763,13 @@ def q5_2_scatter_rpc_tlr(
     highlight_states: Optional[List[str]] = None,
 ) -> Tuple[go.Figure, pd.DataFrame]:
     """
-    Q5.2 — Scatter plot: RPC (x-axis) vs TLR (y-axis) with four-quadrant
+    Q5.2 -- Scatter plot: RPC (x-axis) vs TLR (y-axis) with four-quadrant
     dividers, coloured by quadrant.
 
     Analytical rationale
     --------------------
     Institutions in the high-RPC / low-TLR quadrant (upper-left) have strong
-    research output but weaker teaching and learning environments — a pattern
+    research output but weaker teaching and learning environments -- a pattern
     of interest for policy interventions to improve classroom infrastructure.
 
     Default thresholds are the median of each axis (50th percentile),
@@ -546,8 +777,8 @@ def q5_2_scatter_rpc_tlr(
 
     Parameters
     ----------
-    x_threshold     : RPC divider (vertical line). None → median RPC.
-    y_threshold     : TLR divider (horizontal line). None → median TLR.
+    x_threshold     : RPC divider (vertical line). None -> median RPC.
+    y_threshold     : TLR divider (horizontal line). None -> median TLR.
     highlight_states: Optional; not currently used by the renderer but
                       available for future programmatic use.
 
@@ -564,7 +795,7 @@ def q5_2_scatter_rpc_tlr(
 
     fig = go.Figure()
     if scatter_df.empty:
-        apply_theme(fig, title=f"RPC vs TLR — {category} ({year})")
+        apply_theme(fig, title=f"RPC vs TLR -- {category} ({year})")
         return fig, pd.DataFrame()
 
     # Assign each point to a quadrant label
@@ -634,8 +865,8 @@ def q5_2_scatter_rpc_tlr(
     apply_theme(
         fig,
         title=f"Research vs Teaching Scores | {category} · {year}",
-        xaxis_title="RPC — Research & Professional Practice (score out of 100)",
-        yaxis_title="TLR — Teaching, Learning & Resources (score out of 100)",
+        xaxis_title="RPC -- Research & Professional Practice (score out of 100)",
+        yaxis_title="TLR -- Teaching, Learning & Resources (score out of 100)",
         show_legend=True,
     )
 
@@ -657,13 +888,13 @@ def q5_3_scatter_tlr_pr(
     y_threshold: Optional[float] = None,
 ) -> Tuple[go.Figure, pd.DataFrame]:
     """
-    Q5.3 — Scatter plot: TLR (x-axis) vs PR (y-axis) with four-quadrant
+    Q5.3 -- Scatter plot: TLR (x-axis) vs PR (y-axis) with four-quadrant
     dividers.
 
     Analytical rationale
     --------------------
     Institutions in the high-TLR / low-PR quadrant (top-left) excel at
-    teaching but suffer from weak public perception — indicating possible
+    teaching but suffer from weak public perception -- indicating possible
     gaps in outreach, branding, or graduate placement visibility.
 
     Returns
@@ -679,7 +910,7 @@ def q5_3_scatter_tlr_pr(
 
     fig = go.Figure()
     if scatter_df.empty:
-        apply_theme(fig, title=f"TLR vs PR — {category} ({year})")
+        apply_theme(fig, title=f"TLR vs PR -- {category} ({year})")
         return fig, pd.DataFrame()
 
     scatter_df["quadrant"] = "Other"
@@ -747,8 +978,8 @@ def q5_3_scatter_tlr_pr(
     apply_theme(
         fig,
         title=f"Teaching vs Perception Scores | {category} · {year}",
-        xaxis_title="TLR — Teaching, Learning & Resources (score out of 100)",
-        yaxis_title="PR — Perception (score out of 100)",
+        xaxis_title="TLR -- Teaching, Learning & Resources (score out of 100)",
+        yaxis_title="PR -- Perception (score out of 100)",
         show_legend=True,
     )
 
@@ -771,20 +1002,20 @@ def q5_4_improvement_chart(
     params: Optional[List[str]] = None,
 ) -> Tuple[go.Figure, pd.DataFrame]:
     """
-    Q5.4 — Institutions that improved overall score despite declining in
+    Q5.4 -- Institutions that improved overall score despite declining in
     at least one sub-parameter between year1 and year2.
 
     Analytical rationale
     --------------------
     A rising overall score with a falling sub-parameter suggests the institution
-    compensated through other dimensions — or that the weighting formula masked
+    compensated through other dimensions -- or that the weighting formula masked
     a real weakness. The heatmap view makes the trade-off pattern instantly
     visible: red cells = declined, green cells = improved.
 
     Parameters
     ----------
-    view : "heatmap" (default) — colour grid of Δparam per institution.
-           "bar"              — grouped diverging horizontal bar chart.
+    view : "heatmap" (default) -- colour grid of ?param per institution.
+           "bar"              -- grouped diverging horizontal bar chart.
 
     Returns
     -------
@@ -802,7 +1033,7 @@ def q5_4_improvement_chart(
             fig,
             title=(
                 f"Score Improvement with Partial Decline "
-                f"| {category} · {year1} → {year2}"
+                f"| {category} · {year1} -> {year2}"
             ),
         )
         return fig, result_df
@@ -816,7 +1047,7 @@ def q5_4_improvement_chart(
     result_df["short_name"] = result_df["name"].str[:40].str.strip()
 
     if view == "heatmap":
-        # ── Heatmap view ──────────────────────────────────────────────────
+        # ?? Heatmap view ??????????????????????????????????????????????????
         z_data   = result_df[available_dcols].values
         y_labels = result_df["short_name"].tolist()
 
@@ -840,7 +1071,7 @@ def q5_4_improvement_chart(
             ),
             showscale=True,
             colorbar=dict(
-                title=dict(text="Δ Score", font=dict(color=MUTED_TEXT, size=11)),
+                title=dict(text="Score Change (\u0394)", font=dict(color=MUTED_TEXT, size=11)),
                 tickfont=dict(color=TEXT_COLOR, size=10),
                 bgcolor=DARK_BG,
                 bordercolor=GRID_COLOR,
@@ -849,17 +1080,18 @@ def q5_4_improvement_chart(
         apply_theme(
             fig,
             title=(
-                f"Parameter Changes for Institutions with Rising Overall Score<br>"
-                f"<sub>{category} · {year1} → {year2}  "
-                f"({len(result_df)} institutions)</sub>"
+                f"Parameter Changes for Institutions with Rising Overall Score"
+                f" ({year1} \u2192 {year2})<br>"
+                f"<sub>{category}  \u00b7  {len(result_df)} institutions qualify"
+                f"  \u00b7  green = improved, red = declined</sub>"
             ),
             xaxis_title="NIRF Parameter",
             yaxis_title="Institution",
         )
-        fig.update_layout(margin=dict(l=260, r=80, t=100, b=60))
+        fig.update_layout(margin=dict(l=260, r=80, t=110, b=60))
 
     else:
-        # ── Diverging bar chart view ───────────────────────────────────────
+        # Diverging bar chart view
         for param in available_params:
             dcol   = f"d{param}"
             colors = [
@@ -880,11 +1112,11 @@ def q5_4_improvement_chart(
         apply_theme(
             fig,
             title=(
-                f"Parameter-wise Changes | {category} · {year1} → {year2}<br>"
-                "<sub>Institutions with rising overall score "
-                "but ≥1 parameter decline</sub>"
+                f"Parameter-wise Changes ({year1} \u2192 {year2}) | {category}<br>"
+                f"<sub>Institutions with rising overall score"
+                f" but \u2265 1 parameter decline  \u00b7  {len(result_df)} institutions</sub>"
             ),
-            xaxis_title="Score Change (Δ)",
+            xaxis_title="Score Change (\u0394)",
             yaxis_title="Institution",
             show_legend=True,
         )
@@ -901,17 +1133,17 @@ def q5_5_spread_bar(
     params: Optional[List[str]] = None,
 ) -> Tuple[go.Figure, pd.DataFrame]:
     """
-    Q5.5 — Horizontal bar chart of institutions with the largest spread between
+    Q5.5 -- Horizontal bar chart of institutions with the largest spread between
     their strongest and weakest normalised NIRF parameter.
 
     Analytical rationale
     --------------------
-    A large spread indicates an institution is highly unbalanced — exceptional
+    A large spread indicates an institution is highly unbalanced -- exceptional
     in one dimension but weak in another. This metric highlights structural
     imbalances that an aggregate score alone would hide.
 
     Normalisation ensures a fair comparison: all parameters are expressed on
-    a 0–100 scale before computing max − min.
+    a 0-100 scale before computing max − min.
 
     Parameters
     ----------
@@ -927,7 +1159,7 @@ def q5_5_spread_bar(
     fig = go.Figure()
 
     if spread_df.empty:
-        apply_theme(fig, title=f"Parameter Spread — {category} ({year})")
+        apply_theme(fig, title=f"Parameter Spread -- {category} ({year})")
         return fig, spread_df
 
     # Sort ascending so largest spread renders at the top of the chart
@@ -999,7 +1231,7 @@ def q5_5_spread_bar(
 
 
 # ===========================================================================
-# SECTION C — STREAMLIT TAB RENDERER
+# SECTION C -- STREAMLIT TAB RENDERER
 # ===========================================================================
 
 def _render_note(note: Optional[str]) -> None:
@@ -1028,7 +1260,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
     """
     import streamlit as st
 
-    # ── Build filter option lists ─────────────────────────────────────────
+    # ?? Build filter option lists ?????????????????????????????????????????
     all_categories = sorted(df["category"].dropna().unique().tolist())
     if "Overall" in all_categories:
         all_categories.remove("Overall")
@@ -1037,7 +1269,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
     all_years  = sorted(df["year"].dropna().unique().tolist())
     all_states = sorted(df["state"].dropna().unique().tolist())
 
-    # ── Trends-style two-column header row ───────────────────────────────
+    # ?? Trends-style two-column header row ???????????????????????????????
     # col_q  : question selector (left, wider)
     # col_p  : context-sensitive parameter controls (right)
     col_q, col_p = st.columns([1.5, 1.2])
@@ -1054,7 +1286,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
         question = st.selectbox("Question", QUESTIONS, index=0)
 
     # ================================================================
-    # Q 5.1 — Top-5 Radar / Grouped Bar
+    # Q 5.1 -- Top-5 Radar / Grouped Bar
     # ================================================================
     if question == QUESTIONS[0]:
         with col_p:
@@ -1067,7 +1299,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
         )
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
-        # Takeaway card — matches trends.py style exactly
+        # Takeaway card -- matches trends.py style exactly
         if not top5_df.empty:
             avail = mv_available_params(mv_filter(df, year=year, category=category))
             top1  = top5_df.iloc[0]
@@ -1088,7 +1320,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
                 st.dataframe(top5_df.rename(columns={"rank_num": "Rank"}), width="stretch")
 
     # ================================================================
-    # Q 5.2 — RPC vs TLR scatter
+    # Q 5.2 -- RPC vs TLR scatter
     # ================================================================
     elif question == QUESTIONS[1]:
         sub_tmp     = mv_filter(df, year=all_years[-1], category=all_categories[0])
@@ -1111,13 +1343,13 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
         if not quad_df.empty:
             top_inst = quad_df.iloc[0]
             takeaway = (
-                f"<b>{len(quad_df)}</b> institution(s) have high research (RPC ≥ {rpc_thresh:.1f}) "
+                f"<b>{len(quad_df)}</b> institution(s) have high research (RPC >= {rpc_thresh:.1f}) "
                 f"but weaker teaching (TLR &lt; {tlr_thresh:.1f}) in {category} {year}. "
                 f"Top by RPC: <b>{top_inst['name']}</b> "
                 f"(RPC {top_inst['RPC']:.1f}, TLR {top_inst['TLR']:.1f})."
             )
         else:
-            takeaway = f"No institutions fall in the High-RPC / Low-TLR quadrant at the current thresholds — try lowering TLR or raising RPC threshold."
+            takeaway = f"No institutions fall in the High-RPC / Low-TLR quadrant at the current thresholds -- try lowering TLR or raising RPC threshold."
         st.markdown(
             f"""<div class="takeaway-card">
             <span class="takeaway-highlight">Takeaway line:</span> {takeaway}
@@ -1131,7 +1363,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
             )
 
     # ================================================================
-    # Q 5.3 — TLR vs PR scatter
+    # Q 5.3 -- TLR vs PR scatter
     # ================================================================
     elif question == QUESTIONS[2]:
         sub_tmp     = mv_filter(df, year=all_years[-1], category=all_categories[0])
@@ -1154,13 +1386,13 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
         if not quad_df.empty:
             top_inst = quad_df.iloc[0]
             takeaway = (
-                f"<b>{len(quad_df)}</b> institution(s) have strong teaching (TLR ≥ {tlr_thresh:.1f}) "
+                f"<b>{len(quad_df)}</b> institution(s) have strong teaching (TLR >= {tlr_thresh:.1f}) "
                 f"but weak public perception (PR &lt; {pr_thresh:.1f}) in {category} {year}. "
                 f"Top by TLR: <b>{top_inst['name']}</b> "
                 f"(TLR {top_inst['TLR']:.1f}, PR {top_inst['PR']:.1f})."
             )
         else:
-            takeaway = "No institutions fall in the High-TLR / Low-PR quadrant at the current thresholds — try adjusting the sliders."
+            takeaway = "No institutions fall in the High-TLR / Low-PR quadrant at the current thresholds -- try adjusting the sliders."
         st.markdown(
             f"""<div class="takeaway-card">
             <span class="takeaway-highlight">Takeaway line:</span> {takeaway}
@@ -1174,7 +1406,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
             )
 
     # ================================================================
-    # Q 5.4 — Score improved, parameter(s) declined
+    # Q 5.4 -- Score improved, parameter(s) declined
     # ================================================================
     elif question == QUESTIONS[3]:
         with col_p:
@@ -1201,7 +1433,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
             avg_improve = result_df["score_change"].mean()
             takeaway = (
                 f"<b>{len(result_df)}</b> institution(s) in {category} raised their overall score "
-                f"from {year1} → {year2} despite ≥1 parameter declining. "
+                f"from {year1} \u2192 {year2} despite \u2265 1 parameter declining. "
                 f"Average score gain: <b>+{avg_improve:.2f} pts</b>. "
                 f"Most improved: <b>{top_inst['name']}</b> (+{top_inst['score_change']:.2f} pts, "
                 f"biggest decline in {top_inst['strongest_decline']})."
@@ -1219,9 +1451,9 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
             )
             st.dataframe(
                 result_df[display_cols].rename(columns={
-                    "score_change": "Δ Score", "n_declined": "# Params Declined",
+                    "score_change": "\u0394 Score", "n_declined": "# Params Declined",
                     "strongest_decline": "Biggest Decline In",
-                    **{f"d{p}": f"Δ {p}" for p in NIRF_PARAMS},
+                    **{f"d{p}": f"\u0394 {p}" for p in NIRF_PARAMS},
                 }),
                 width="stretch",
             )
@@ -1235,7 +1467,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
             )
 
     # ================================================================
-    # Q 5.5 — Largest parameter spread
+    # Q 5.5 -- Largest parameter spread
     # ================================================================
     elif question == QUESTIONS[4]:
         with col_p:
@@ -1254,7 +1486,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
             top_inst = spread_df.iloc[-1]   # last row = largest spread (sorted ascending)
             takeaway = (
                 f"Most imbalanced institution in {category} {year}: "
-                f"<b>{top_inst['name']}</b> — spread of <b>{top_inst['spread']:.1f} pts</b> "
+                f"<b>{top_inst['name']}</b> -- spread of <b>{top_inst['spread']:.1f} pts</b> "
                 f"(strongest: <b>{top_inst['strongest_param']}</b>, "
                 f"weakest: <b>{top_inst['weakest_param']}</b>)."
             )
