@@ -26,8 +26,6 @@ import numpy as np
 import plotly.graph_objects as go
 from charts.theme import (
     apply_theme,
-    QUALITATIVE_PALETTE,
-    PALETTE,
     LINE_COLOR,
     MUTED_TEXT,
     TEXT_COLOR,
@@ -37,6 +35,11 @@ from charts.theme import (
     ACCENT_GREEN,
     ACCENT_RED,
 )
+try:
+    from charts.theme import QUALITATIVE_PALETTE, PALETTE
+except ImportError:
+    from charts.theme import PALETTE
+    QUALITATIVE_PALETTE = PALETTE
 
 PARAMETERS = ["TLR", "RPC", "GO", "OI", "PR"]
 PARAM_LABELS = {

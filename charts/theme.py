@@ -32,6 +32,7 @@ PALETTE = [
     "#a78bfa",  # Purple
     "#94a3b8",  # Slate
 ]
+QUALITATIVE_PALETTE = PALETTE
 
 
 def apply_theme(
