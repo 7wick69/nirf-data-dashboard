@@ -86,7 +86,15 @@ def get_year_range(df: pd.DataFrame) -> Tuple[int, int]:
     return int(df["year"].min()), int(df["year"].max())
 
 
-def get_institutions_list(df: pd.DataFrame, category: Optional[str] = None) -> List[str]:
-    """Returns sorted list of institution names, optionally filtered by category."""
-    sub = df if category is None else df[df["category"] == category]
+def get_institutions_list(
+    df: pd.DataFrame,
+    category: Optional[str] = None,
+    state: Optional[str] = None,
+) -> List[str]:
+    """Returns sorted list of institution names, optionally filtered by category and state."""
+    sub = df
+    if category is not None:
+        sub = sub[sub["category"] == category]
+    if state is not None and state != "All states":
+        sub = sub[sub["state"] == state]
     return sorted(sub["name"].dropna().unique().tolist())

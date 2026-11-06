@@ -1,0 +1,39 @@
+{
+  "title": "Average Score Trajectory Over Time",
+  "takeaway": "Progression of mean composite score across years",
+  "steps": [
+    {
+      "op": "filter",
+      "where": [
+        {
+          "field": "category",
+          "op": "eq",
+          "value": "Overall"
+        }
+      ]
+    },
+    {
+      "op": "aggregate",
+      "by": [
+        "year"
+      ],
+      "metrics": [
+        {
+          "field": "score",
+          "fn": "mean",
+          "as": "avg_score"
+        }
+      ]
+    },
+    {
+      "op": "sort",
+      "by": "year",
+      "order": "asc"
+    }
+  ],
+  "chart": {
+    "type": "line",
+    "x": "year",
+    "y": "avg_score"
+  }
+}

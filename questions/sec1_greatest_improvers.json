@@ -1,0 +1,31 @@
+{
+  "title": "Greatest Rank Improvers (2017 to 2025)",
+  "takeaway": "Institutions showing the highest net rank climbed",
+  "steps": [
+    {
+      "op": "filter",
+      "where": [
+        {
+          "field": "category",
+          "op": "eq",
+          "value": "Overall"
+        }
+      ]
+    },
+    {
+      "op": "sort",
+      "by": "rank_change",
+      "order": "desc"
+    },
+    {
+      "op": "top",
+      "n": 5
+    }
+  ],
+  "chart": {
+    "type": "bar",
+    "x": "rank_change",
+    "y": "name",
+    "orientation": "h"
+  }
+}
