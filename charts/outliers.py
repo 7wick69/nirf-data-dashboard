@@ -721,3 +721,4 @@ def plot_ranking_volatility(
         )
 
     return fig, takeaway
+
