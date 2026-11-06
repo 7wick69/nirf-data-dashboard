@@ -1041,8 +1041,8 @@ with tabs[7]:
             sub_q4 = df_full[(df_full["year"] == q4_year) & (df_full["category"] == selected_category)]
             if selected_state != "All states":
                 sub_q4 = sub_q4[sub_q4["state"] == selected_state]
-            show_cols = ["name", "state", "rank", "score", selected_param, "TLR", "RPC", "PR"]
-            show_cols = [c for c in show_cols if c in df_full.columns]
+            candidate_cols = ["name", "state", "rank", "score", selected_param, "TLR", "RPC", "GO", "OI", "PR"]
+            show_cols = list(dict.fromkeys([c for c in candidate_cols if c in df_full.columns]))
             st.dataframe(sub_q4[show_cols].sort_values("rank", ascending=False), use_container_width=True)
 
     # 5. Ranking Volatility (Dual Options)
