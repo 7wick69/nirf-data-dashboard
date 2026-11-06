@@ -62,7 +62,8 @@ nirf-data-dashboard/
 │   └── safe_expr.py           # Safe AST arithmetic evaluator (blocks arbitrary execution)
 ├── charts/
 │   ├── theme.py               # Minimalist Plotly dark theme (charcoal canvas, electric blue)
-│   └── trends.py              # Trend visualizations (Rank trajectory, Delta, Scores, Top 10)
+│   ├── trends.py              # Trend visualizations (Rank trajectory, Delta, Scores, Top 10)
+│   └── geo.py                 # Geospatial & Regional visualizations (Top 100 states, Choropleth, Delta, Boxplot, New Entrants)
 ├── data/
 │   └── clean/
 │       ├── data_nirf_clean2.csv   # Clean primary NIRF dataset
@@ -94,7 +95,27 @@ nirf-data-dashboard/
 
 ---
 
-## 🧮 Derived Metrics (`core/metrics.py`)
+## 🗺️ Geospatial & Regional Visualizations (`charts/geo.py`)
+
+Each research question features a synchronized **side-by-side dashboard layout** pairing an interactive India Choropleth map with a complementary statistical chart:
+
+1. **Top States in Top 100:**
+   - **Left:** India Choropleth map showing state-wise Top 100 density.
+   - **Right:** Horizontal bar chart sorted by institution count with counts and percentage shares.
+2. **Geographical Distribution Evolution:**
+   - **Left:** Year-by-year India Choropleth map with year slider (2017–2025).
+   - **Right:** State-wise stacked bar chart showing multi-year evolution (2017–2025).
+3. **State Representation Improvement:**
+   - **Left:** Diverging Choropleth map (Emerald green for growth, Red for contraction).
+   - **Right:** Net representation delta bar chart or multi-state slope chart.
+4. **Regional Comparison (Karnataka vs. Tamil Nadu):**
+   - **Left:** Geographic focus map highlighting Karnataka and Tamil Nadu with median ranks.
+   - **Right:** Comparative Boxplot or Violin Plot with inverted Y-axis (#1 at top).
+5. **Newly Appearing Institutions by State:**
+   - **Left:** New institutional entrants density Choropleth map ($Y_{first} > 2017$).
+   - **Right:** State-wise new entrant incubator bar chart.
+
+---
 
 - **`rank_change`**: $Rank_{prev} - Rank_{curr}$ (Positive indicates an improved rank; e.g. from 8 to 2 is `+6`).
 - **`score_change_yoy`**: Score difference compared to previous available year.
