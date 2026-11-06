@@ -49,6 +49,8 @@ from charts.outliers import (
     plot_ranking_volatility,
 )
 from charts.explore import render_explore_tab
+from charts.multivariate import render_multivariate_tab
+from charts.distribution_analysis import render_distribution_tab
 
 # ---------------------------------------------------------
 # Page Configuration & Custom Monocolor Dark Theme CSS
@@ -255,13 +257,13 @@ with st.sidebar:
 # ---------------------------------------------------------
 # Filter Dataset Globally
 # ---------------------------------------------------------
-df_filtered = df_full[
-    (df_full["year"] >= year_range[0])
-    & (df_full["year"] <= year_range[1])
-    & (df_full["category"] == selected_category)
-]
-if selected_state != "All states":
-    df_filtered = df_filtered[df_filtered["state"] == selected_state]
+df_state = df_full[df_full["state"] == selected_state].copy() if selected_state != "All states" else df_full.copy()
+
+df_filtered = df_state[
+    (df_state["year"] >= year_range[0])
+    & (df_state["year"] <= year_range[1])
+    & (df_state["category"] == selected_category)
+].copy()
 
 
 # ---------------------------------------------------------
@@ -299,7 +301,7 @@ with tabs[0]:
 
     # 1. Institution Rank Over Time
     if question == "How has the overall NIRF ranking of a selected institution changed from 2017 to 2025?":
-        inst_options = get_institutions_list(df_full, selected_category, selected_state)
+        inst_options = get_institutions_list(df_state, selected_category)
 
         if not inst_options:
             st.info(f"No institutions found in {selected_state} for category '{selected_category}'.")
@@ -323,7 +325,7 @@ with tabs[0]:
                 state=selected_state,
             )
 
-            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+            st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
             st.markdown(
                 f"""<div class="takeaway-card">
@@ -346,7 +348,7 @@ with tabs[0]:
             state=selected_state,
         )
 
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
         st.markdown(
             f"""<div class="takeaway-card">
@@ -369,7 +371,7 @@ with tabs[0]:
             state=selected_state,
         )
 
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
         st.markdown(
             f"""<div class="takeaway-card">
@@ -381,13 +383,13 @@ with tabs[0]:
     # 4. Average Score Over Time
     elif question == "How has the average score of institutions changed over time?":
         fig, takeaway = plot_average_score_trend(
-            df=df_full,
+            df=df_state,
             category=selected_category,
             year_range=year_range,
             state=selected_state,
         )
 
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
         st.markdown(
             f"""<div class="takeaway-card">
@@ -439,7 +441,7 @@ with tabs[0]:
                 state="All states",
             )
 
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
         st.markdown(
             f"""<div class="takeaway-card">
@@ -475,7 +477,7 @@ with tabs[0]:
         
         display_cols = [c for c in ["year", "name", "state", "rank", "score", "rank_change", "TLR", "RPC", "GO", "OI", "PR"] if c in table_df.columns]
         result_sub_df = table_df[display_cols].sort_values(by=["year", "rank"] if "rank" in table_df.columns else "year")
-        st.dataframe(result_sub_df, use_container_width=True)
+        st.dataframe(result_sub_df, width="stretch")
         csv_bytes = result_sub_df.to_csv(index=False).encode("utf-8")
         st.download_button("Download CSV", data=csv_bytes, file_name="trends_data.csv", mime="text/csv")
 
@@ -872,12 +874,23 @@ with tabs[3]:  # "Bivariate"
 
 
 # ---------------------------------------------------------
-# Placeholder Tabs (Multivariate, Distribution, Transitions)
+# TAB 5: Multivariate Analysis (Annexure A §5)
 # ---------------------------------------------------------
-for idx, tab_name in enumerate(["Multivariate", "Distribution", "Transitions"], start=4):
-    with tabs[idx]:
-        st.markdown(f"#### {tab_name} Visualizations")
-        st.info(f"The {tab_name} questions from Annexure A will be activated in the next step.")
+with tabs[4]:
+    render_multivariate_tab(df_state, df_full=df_full)
+
+# ---------------------------------------------------------
+# TAB 6: Distribution Analysis (Annexure A §6)
+# ---------------------------------------------------------
+with tabs[5]:
+    render_distribution_tab(df_state, df_full=df_full)
+
+# ---------------------------------------------------------
+# TAB 7: Transitions Visualizations (Annexure A §7)
+# ---------------------------------------------------------
+with tabs[6]:
+    st.markdown("#### Transitions Visualizations")
+    st.info("The Transitions questions from Annexure A will be activated in the next step.")
 
 # ---------------------------------------------------------
 # TAB 8: Outlier Detection & Performance Gaps (Annexure A §8)

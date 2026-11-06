@@ -24,19 +24,23 @@ ACCENT_RED = "#f43f5e"
 TEXT_COLOR = "#e6edf3"
 MUTED_TEXT = "#8b949e"
 
-# Textbook Qualitative Categorical Palette (10 distinct hues, balanced luminance for dark background)
+# Textbook Qualitative Categorical Palette with high-contrast complementary pairs:
+# Pair 1: Sky Blue (#38bdf8) & Vibrant Orange (#f97316)
+# Pair 2: Emerald Green (#10b981) & Rose Red (#f43f5e)
+# Triad/Accent: Purple (#a855f7), Amber (#f59e0b), Cyan (#06b6d4), Pink (#ec4899)
 QUALITATIVE_PALETTE = [
     "#38bdf8",  # Sky Blue
-    "#f97316",  # Orange
+    "#f97316",  # Vibrant Orange (complementary to Sky Blue)
     "#10b981",  # Emerald Green
-    "#f43f5e",  # Rose Red
+    "#f43f5e",  # Rose Red (complementary to Emerald Green)
     "#a855f7",  # Purple
-    "#f59e0b",  # Amber / Warm Yellow
+    "#f59e0b",  # Amber / Warm Gold
     "#06b6d4",  # Cyan
-    "#ec4899",  # Magenta / Pink
+    "#ec4899",  # Pink
     "#84cc16",  # Lime Green
     "#6366f1",  # Indigo
 ]
+PALETTE = QUALITATIVE_PALETTE
 
 # Redundant encoding marker symbols (Textbook rule: do not rely on color alone)
 MARKER_SYMBOLS = [

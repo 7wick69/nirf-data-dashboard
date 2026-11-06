@@ -59,7 +59,7 @@ def plot_institution_rank_trend(
     Question 1: How has the overall NIRF ranking of a selected institution changed from 2017 to 2025?
     Plots the rank trajectory with an inverted Y-axis so Rank 1 is at the top.
     """
-    filtered = df[(df["name"] == institution_name) & (df["category"] == category)].copy()
+    filtered = df[(df["name"] == institution_name) & (df["category"] == category) & df["rank"].notna()].copy()
 
     if state and state != "All states":
         filtered = filtered[filtered["state"] == state]
