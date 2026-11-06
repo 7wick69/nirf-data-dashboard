@@ -1,0 +1,31 @@
+{
+  "title": "Largest Rank Decliners (2017 to 2025)",
+  "takeaway": "Institutions showing steepest net rank drop",
+  "steps": [
+    {
+      "op": "filter",
+      "where": [
+        {
+          "field": "category",
+          "op": "eq",
+          "value": "Overall"
+        }
+      ]
+    },
+    {
+      "op": "sort",
+      "by": "rank_change",
+      "order": "asc"
+    },
+    {
+      "op": "top",
+      "n": 5
+    }
+  ],
+  "chart": {
+    "type": "bar",
+    "x": "rank_change",
+    "y": "name",
+    "orientation": "h"
+  }
+}
