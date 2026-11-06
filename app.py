@@ -21,6 +21,7 @@ from charts.trends import (
     plot_consistently_top10,
 )
 from charts.multivariate import render_multivariate_tab
+from charts.distribution_analysis import render_distribution_tab
 
 # ---------------------------------------------------------
 # Page Configuration & Custom Monocolor Dark Theme CSS
@@ -383,6 +384,8 @@ for idx, tab_name in enumerate(["Geo", "Univariate", "Bivariate", "Multivariate"
     with tabs[idx]:
         if tab_name == "Multivariate":
             render_multivariate_tab(df_full)
+        elif tab_name == "Distribution":
+            render_distribution_tab(df_full)
         else:
             st.markdown(f"#### {tab_name} Visualizations")
             st.info(f"Phase 1 focused on `trends.py` validation. The {tab_name} questions from Annexure A will be activated in the next step.")
