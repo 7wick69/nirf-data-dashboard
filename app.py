@@ -20,6 +20,24 @@ from charts.trends import (
     plot_average_score_trend,
     plot_consistently_top10,
 )
+import importlib
+import charts.bivariate
+importlib.reload(charts.bivariate)
+from charts.bivariate import (
+    plot_scatter_marginals,
+    plot_correlation_vs_weight,
+    plot_param_correlation_heatmap,
+    plot_tlr_rpc_quadrants,
+    plot_tlr_rpc_by_category,
+    plot_param_corr_over_years,
+    plot_param_year_heatmap,
+    plot_explorer,
+    plot_rpc_vs_overall,
+    plot_pr_vs_overall,
+    plot_parameter_correlations,
+    plot_tlr_vs_rpc,
+    plot_rpc_overall_correlation_over_years,
+)
 
 # ---------------------------------------------------------
 # Page Configuration & Custom Monocolor Dark Theme CSS
@@ -378,10 +396,399 @@ with tabs[0]:
 # ---------------------------------------------------------
 # Placeholder Tabs (Next Phases)
 # ---------------------------------------------------------
-for idx, tab_name in enumerate(["Geo", "Univariate", "Bivariate", "Multivariate", "Distribution", "Transitions", "Outliers"], start=1):
+# Geo, Univariate placeholders (phases yet to come)
+for idx, tab_name in enumerate(["Geo", "Univariate"], start=1):
     with tabs[idx]:
         st.markdown(f"#### {tab_name} Visualizations")
-        st.info(f"Phase 1 focused on `trends.py` validation. The {tab_name} questions from Annexure A will be activated in the next step.")
+        st.info(f"The {tab_name} questions from Annexure A will be activated in the next step.")
+
+
+# ---------------------------------------------------------
+# TAB 4: Bivariate Analysis & Correlation (Annexure A §4)
+# ---------------------------------------------------------
+with tabs[3]:  # "Bivariate"
+
+    BIVARIATE_QUESTIONS = [
+        "Q1 · How strongly are RPC scores associated with overall scores?",
+        "Q2 · How does Perception (PR) relate to overall scores?",
+        "Q3 · Which NIRF parameter has the strongest correlation with overall score?",
+        "Q4 · How are TLR and RPC scores related across institutions?",
+        "Q5 · Has the correlation between research and overall scores changed (2017–2025)?",
+        "⚡ Interactive Two-Variable Explorer (Custom attributes & regression)",
+    ]
+
+    col_bq, col_bp = st.columns([1.6, 1.1])
+
+    with col_bq:
+        biv_question = st.selectbox(
+            "Select Bivariate Question / Feature",
+            options=BIVARIATE_QUESTIONS,
+            index=0,
+            key="biv_question_select",
+        )
+
+    # ── Q1: RPC vs Overall Score ──────────────────────────────────────────────
+    if biv_question == BIVARIATE_QUESTIONS[0]:
+        with col_bp:
+            years_available = sorted(df_full["year"].dropna().unique().tolist())
+            biv_year = st.selectbox(
+                "Year",
+                options=years_available,
+                index=len(years_available) - 1,
+                key="biv_q1_year",
+            )
+            col_c1, col_c2 = st.columns(2)
+            with col_c1:
+                corr_choice = st.radio(
+                    "Method",
+                    options=["Pearson", "Spearman"],
+                    horizontal=True,
+                    key="biv_q1_corr",
+                )
+            with col_c2:
+                top_outliers = st.slider("Residual outliers to label", 2, 8, 4, key="biv_q1_outliers")
+
+        fig, takeaway = plot_scatter_marginals(
+            df=df_full,
+            x_param="RPC",
+            year=biv_year,
+            category=selected_category,
+            state=None if selected_state == "All states" else selected_state,
+            corr_type=corr_choice.lower(),
+            top_n_outliers=top_outliers,
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.markdown(
+            f"""<div class="takeaway-card">
+            <span class="takeaway-highlight">Takeaway:</span> {takeaway}
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        with st.expander("🔍 View underlying data & residual details", expanded=False):
+            show_cols = ["name", "state", "rank", "score", "RPC", "TLR", "GO", "OI", "PR", "rank_band"]
+            show_cols = [c for c in show_cols if c in df_full.columns]
+            sub = df_full[(df_full["year"] == biv_year) & (df_full["category"] == selected_category)]
+            if selected_state != "All states":
+                sub = sub[sub["state"] == selected_state]
+            st.dataframe(sub[show_cols].dropna(subset=["RPC", "score"]).sort_values("rank"), use_container_width=True)
+
+    # ── Q2: Perception (PR) vs Overall Score ──────────────────────────────────
+    elif biv_question == BIVARIATE_QUESTIONS[1]:
+        with col_bp:
+            years_available = sorted(df_full["year"].dropna().unique().tolist())
+            biv_year = st.selectbox(
+                "Year",
+                options=years_available,
+                index=len(years_available) - 1,
+                key="biv_q2_year",
+            )
+            col_c1, col_c2 = st.columns(2)
+            with col_c1:
+                corr_choice = st.radio(
+                    "Method",
+                    options=["Pearson", "Spearman"],
+                    horizontal=True,
+                    key="biv_q2_corr",
+                )
+            with col_c2:
+                top_outliers = st.slider("Residual outliers to label", 2, 8, 4, key="biv_q2_outliers")
+
+        fig, takeaway = plot_scatter_marginals(
+            df=df_full,
+            x_param="PR",
+            year=biv_year,
+            category=selected_category,
+            state=None if selected_state == "All states" else selected_state,
+            corr_type=corr_choice.lower(),
+            top_n_outliers=top_outliers,
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.markdown(
+            f"""<div class="takeaway-card">
+            <span class="takeaway-highlight">Takeaway:</span> {takeaway}
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        with st.expander("💡 Statistical Insight: Pearson vs Spearman Divergence", expanded=False):
+            st.markdown("""
+**Why do Pearson and Spearman diverge significantly for Perception (PR)?**
+- **Perception (PR)** has an extremely skewed distribution: most institutions receive very low PR scores (near 0 to 10), while a select few elite institutions (IITs, IISc) receive near-perfect 100s.
+- **Pearson r** is sensitive to extreme values and measures purely linear association.
+- **Spearman ρ** assesses monotonic ranking order and is robust to extreme skew.
+- The gap between linear and monotonic correlation clearly demonstrates the non-linear "superstar effect" of institutional perception in NIRF.
+""")
+
+    # ── Q3: Strongest parameter correlation with overall score ────────────────
+    elif biv_question == BIVARIATE_QUESTIONS[2]:
+        with col_bp:
+            q3_view = st.radio(
+                "Display Mode",
+                options=["Correlation vs Official Weight", "5×5 Cross-Correlation Heatmap", "Show Both Side-by-Side"],
+                horizontal=False,
+                key="biv_q3_view",
+            )
+
+        if q3_view == "Correlation vs Official Weight":
+            fig_bar, takeaway_bar = plot_correlation_vs_weight(
+                df=df_full,
+                category=selected_category,
+                year_range=year_range,
+                state=None if selected_state == "All states" else selected_state,
+            )
+            st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
+            st.markdown(
+                f"""<div class="takeaway-card">
+                <span class="takeaway-highlight">Takeaway:</span> {takeaway_bar}
+                </div>""",
+                unsafe_allow_html=True,
+            )
+        elif q3_view == "5×5 Cross-Correlation Heatmap":
+            fig_heat, takeaway_heat = plot_param_correlation_heatmap(
+                df=df_full,
+                category=selected_category,
+                year_range=year_range,
+                state=None if selected_state == "All states" else selected_state,
+            )
+            st.plotly_chart(fig_heat, use_container_width=True, config={"displayModeBar": False})
+            st.markdown(
+                f"""<div class="takeaway-card">
+                <span class="takeaway-highlight">Takeaway:</span> {takeaway_heat}
+                </div>""",
+                unsafe_allow_html=True,
+            )
+        else:
+            col_g1, col_g2 = st.columns(2)
+            with col_g1:
+                fig_bar, takeaway_bar = plot_correlation_vs_weight(
+                    df=df_full,
+                    category=selected_category,
+                    year_range=year_range,
+                    state=None if selected_state == "All states" else selected_state,
+                )
+                st.plotly_chart(fig_bar, use_container_width=True, config={"displayModeBar": False})
+            with col_g2:
+                fig_heat, takeaway_heat = plot_param_correlation_heatmap(
+                    df=df_full,
+                    category=selected_category,
+                    year_range=year_range,
+                    state=None if selected_state == "All states" else selected_state,
+                )
+                st.plotly_chart(fig_heat, use_container_width=True, config={"displayModeBar": False})
+
+            st.markdown(
+                f"""<div class="takeaway-card">
+                <span class="takeaway-highlight">Key Insights:</span> {takeaway_bar} {takeaway_heat}
+                </div>""",
+                unsafe_allow_html=True,
+            )
+
+        with st.expander("📐 Weights & Correlation Reference Table", expanded=False):
+            st.markdown("""
+| NIRF Parameter | Full Name | Official Weight | Role in Overall Score |
+|---|---|---|---|
+| **TLR** | Teaching, Learning & Resources | **30%** | Faculty-student ratio, financial resources |
+| **RPC** | Research and Professional Practice | **30%** | Publications, citations, patent metrics |
+| **GO** | Graduation Outcomes | **20%** | Placement rate, median salary, PhD graduates |
+| **OI** | Outreach & Inclusivity | **10%** | Diversity, women percentage, regional diversity |
+| **PR** | Perception | **10%** | Academic and employer peer survey |
+
+*Notice that PR (10% weight) and RPC (30% weight) exhibit outsized predictive correlation with the overall score, while OI operates nearly independently.*
+""")
+
+    # ── Q4: TLR vs RPC (Quadrant Map + Category Lollipop) ─────────────────────
+    elif biv_question == BIVARIATE_QUESTIONS[3]:
+        with col_bp:
+            q4_mode = st.radio(
+                "Analysis Perspective",
+                options=["Quadrant Map (Median Crosshairs)", "Discipline Breakdown (Lollipop by Category)", "Show Both"],
+                horizontal=False,
+                key="biv_q4_mode",
+            )
+            years_available = sorted(df_full["year"].dropna().unique().tolist())
+            biv_year = st.selectbox(
+                "Year",
+                options=years_available,
+                index=len(years_available) - 1,
+                key="biv_q4_year",
+            )
+
+        if q4_mode == "Quadrant Map (Median Crosshairs)":
+            fig_quad, takeaway_quad = plot_tlr_rpc_quadrants(
+                df=df_full,
+                year=biv_year,
+                category=selected_category,
+                state=None if selected_state == "All states" else selected_state,
+                top_n_labels=6,
+            )
+            st.plotly_chart(fig_quad, use_container_width=True, config={"displayModeBar": False})
+            st.markdown(
+                f"""<div class="takeaway-card">
+                <span class="takeaway-highlight">Takeaway:</span> {takeaway_quad}
+                </div>""",
+                unsafe_allow_html=True,
+            )
+        elif q4_mode == "Discipline Breakdown (Lollipop by Category)":
+            fig_lolli, takeaway_lolli = plot_tlr_rpc_by_category(
+                df=df_full,
+                year=biv_year,
+            )
+            st.plotly_chart(fig_lolli, use_container_width=True, config={"displayModeBar": False})
+            st.markdown(
+                f"""<div class="takeaway-card">
+                <span class="takeaway-highlight">Takeaway:</span> {takeaway_lolli}
+                </div>""",
+                unsafe_allow_html=True,
+            )
+        else:
+            fig_quad, takeaway_quad = plot_tlr_rpc_quadrants(
+                df=df_full,
+                year=biv_year,
+                category=selected_category,
+                state=None if selected_state == "All states" else selected_state,
+                top_n_labels=5,
+            )
+            st.plotly_chart(fig_quad, use_container_width=True, config={"displayModeBar": False})
+
+            fig_lolli, takeaway_lolli = plot_tlr_rpc_by_category(
+                df=df_full,
+                year=biv_year,
+            )
+            st.plotly_chart(fig_lolli, use_container_width=True, config={"displayModeBar": False})
+
+            st.markdown(
+                f"""<div class="takeaway-card">
+                <span class="takeaway-highlight">Viva Synthesis:</span> {takeaway_quad}<br><br>{takeaway_lolli}
+                </div>""",
+                unsafe_allow_html=True,
+            )
+
+    # ── Q5: Multi-parameter Correlation Trends Over Time ──────────────────────
+    elif biv_question == BIVARIATE_QUESTIONS[4]:
+        with col_bp:
+            q5_view = st.radio(
+                "Visualization Type",
+                options=["Trajectory Lines with 95% CI Band", "Parameter × Year Heatmap Strip", "Show Both"],
+                horizontal=False,
+                key="biv_q5_view",
+            )
+
+        if q5_view == "Trajectory Lines with 95% CI Band":
+            fig_lines, takeaway_lines = plot_param_corr_over_years(
+                df=df_full,
+                category=selected_category,
+                state=None if selected_state == "All states" else selected_state,
+            )
+            st.plotly_chart(fig_lines, use_container_width=True, config={"displayModeBar": False})
+            st.markdown(
+                f"""<div class="takeaway-card">
+                <span class="takeaway-highlight">Takeaway:</span> {takeaway_lines}
+                </div>""",
+                unsafe_allow_html=True,
+            )
+        elif q5_view == "Parameter × Year Heatmap Strip":
+            fig_strip, _ = plot_param_year_heatmap(
+                df=df_full,
+                category=selected_category,
+                state=None if selected_state == "All states" else selected_state,
+            )
+            st.plotly_chart(fig_strip, use_container_width=True, config={"displayModeBar": False})
+        else:
+            fig_lines, takeaway_lines = plot_param_corr_over_years(
+                df=df_full,
+                category=selected_category,
+                state=None if selected_state == "All states" else selected_state,
+            )
+            st.plotly_chart(fig_lines, use_container_width=True, config={"displayModeBar": False})
+
+            fig_strip, _ = plot_param_year_heatmap(
+                df=df_full,
+                category=selected_category,
+                state=None if selected_state == "All states" else selected_state,
+            )
+            st.plotly_chart(fig_strip, use_container_width=True, config={"displayModeBar": False})
+
+            st.markdown(
+                f"""<div class="takeaway-card">
+                <span class="takeaway-highlight">Takeaway:</span> {takeaway_lines}
+                </div>""",
+                unsafe_allow_html=True,
+            )
+
+        with st.expander("📐 Methodology: Fisher z-transformation & CI", expanded=False):
+            st.markdown("""
+- Each annual correlation $r$ is computed over the institutions participating in that year.
+- The 95% Confidence Interval is calculated using the **Fisher $z$-transformation**:
+  $$z = \\operatorname{arctanh}(r), \\quad \\operatorname{SE} = \\frac{1}{\\sqrt{n - 3}}$$
+  $$z_{\\text{CI}} = z \\pm 1.96 \\cdot \\operatorname{SE}, \\quad r_{\\text{CI}} = \\tanh(z_{\\text{CI}})$$
+- When confidence bands are non-overlapping between years, the shift in correlation represents a statistically significant change in ranking dynamics.
+""")
+
+    # ── Interactive Two-Variable Explorer ────────────────────────────────────
+    elif biv_question == BIVARIATE_QUESTIONS[5]:
+        numeric_options = [
+            "score", "rank", "TLR", "RPC", "GO", "OI", "PR",
+            "rank_change", "score_change_yoy", "param_gap", "volatility",
+        ]
+        available_num = [c for c in numeric_options if c in df_full.columns]
+
+        with col_bp:
+            col_x, col_y = st.columns(2)
+            with col_x:
+                var_x = st.selectbox("X Variable", options=available_num, index=available_num.index("RPC") if "RPC" in available_num else 0, key="exp_var_x")
+            with col_y:
+                var_y = st.selectbox("Y Variable", options=available_num, index=available_num.index("score") if "score" in available_num else 1, key="exp_var_y")
+
+            years_available = ["All Years"] + sorted(df_full["year"].dropna().unique().tolist())
+            selected_yr_exp = st.selectbox("Year", options=years_available, index=len(years_available) - 1, key="exp_year_sel")
+            yr_filter = None if selected_yr_exp == "All Years" else int(selected_yr_exp)
+
+            col_opt1, col_opt2 = st.columns(2)
+            with col_opt1:
+                show_lowess = st.checkbox("Include LOWESS curve", value=True, key="exp_lowess")
+            with col_opt2:
+                all_inst_names = ["None"] + sorted(df_full["name"].dropna().unique().tolist())
+                hi_inst = st.selectbox("Highlight institution", options=all_inst_names, index=0, key="exp_hi_inst")
+                highlight_query = None if hi_inst == "None" else hi_inst
+
+        fig_exp, stats_dict, auto_sentence = plot_explorer(
+            df=df_full,
+            x_var=var_x,
+            y_var=var_y,
+            year=yr_filter,
+            category=selected_category,
+            state=None if selected_state == "All states" else selected_state,
+            show_lowess=show_lowess,
+            highlight_inst=highlight_query,
+        )
+
+        # Statistical Metrics Summary Bar
+        m_c1, m_c2, m_c3, m_c4, m_c5 = st.columns(5)
+        with m_c1:
+            st.metric("Pearson r", f"{stats_dict['pearson_r']:.3f}" if stats_dict['pearson_r'] is not None else "N/A")
+        with m_c2:
+            st.metric("Spearman ρ", f"{stats_dict['spearman_r']:.3f}" if stats_dict['spearman_r'] is not None else "N/A")
+        with m_c3:
+            st.metric("R² (Variance)", f"{stats_dict['r_squared']:.3f}" if stats_dict['r_squared'] is not None else "N/A")
+        with m_c4:
+            st.metric("OLS Slope", f"{stats_dict['slope']:.4f}" if stats_dict['slope'] is not None else "N/A")
+        with m_c5:
+            st.metric("Sample Size (n)", f"{stats_dict['n']}")
+
+        st.plotly_chart(fig_exp, use_container_width=True, config={"displayModeBar": False})
+
+        st.markdown(
+            f"""<div class="takeaway-card">
+            <span class="takeaway-highlight">Automated Deduction:</span> {auto_sentence}
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+
+# Remaining placeholder tabs
+for idx, tab_name in enumerate(["Multivariate", "Distribution", "Transitions", "Outliers"], start=4):
+    with tabs[idx]:
+        st.markdown(f"#### {tab_name} Visualizations")
+        st.info(f"The {tab_name} questions from Annexure A will be activated in the next step.")
 
 with tabs[8]:
     st.markdown("#### Explore (Level 2)")
