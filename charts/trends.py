@@ -25,7 +25,7 @@ def plot_institution_rank_trend(
     Inverts the Y-axis so Rank 1 appears at the very top.
     Returns (go.Figure, takeaway_text).
     """
-    filtered = df[(df["name"] == institution_name) & (df["category"] == category)].copy()
+    filtered = df[(df["name"] == institution_name) & (df["category"] == category) & df["rank"].notna()].copy()
 
     if year_range:
         filtered = filtered[(filtered["year"] >= year_range[0]) & (filtered["year"] <= year_range[1])]
