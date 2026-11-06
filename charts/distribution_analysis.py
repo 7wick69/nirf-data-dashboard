@@ -65,9 +65,9 @@ PARAM_FULL: Dict[str, str] = {
     "PR":  "Perception",
 }
 
-# Colour pair for Top-10 vs Rest
-TOP10_COLOR = PALETTE[0]   # electric blue
-REST_COLOR  = PALETTE[6]   # purple
+# Colour pair for Top-10 vs Rest (high-contrast complementary pair: Sky Blue vs Vibrant Orange)
+TOP10_COLOR = "#38bdf8"   # Electric Sky Blue (Top 10)
+REST_COLOR  = "#f97316"   # Vibrant Coral Orange (Rest of institutions — complementary to Sky Blue)
 
 
 # ===========================================================================
@@ -238,10 +238,11 @@ def q6_1_top10_vs_rest(
             fig.add_trace(go.Box(
                 y=grp,
                 name=name,
-                marker_color=color,
-                line_color=color,
-                fillcolor=f"rgba({r},{g},{b},0.25)",
+                marker=dict(color=color, size=6, opacity=0.85),
+                line=dict(color=color, width=2),
+                fillcolor=f"rgba({r},{g},{b},0.35)",
                 boxmean="sd",
+                boxpoints="outliers",
                 hovertemplate=f"<b>{name}</b><br>Score: %{{y:.2f}}<extra></extra>",
             ))
         apply_theme(
