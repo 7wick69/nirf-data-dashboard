@@ -5,8 +5,11 @@ NIRF Interactive Analytics Dashboard
 Minimal, monocolor dark theme matching the design wireframe.
 """
 
+from html import escape
+
 import streamlit as st
 import pandas as pd
+from chatbot.chat_service import process_chat_message
 from core.data import (
     load_nirf_data,
     get_categories,
@@ -158,6 +161,50 @@ div[data-testid="stMetric"] {
 </style>
 """
 st.markdown(DARK_CSS, unsafe_allow_html=True)
+
+
+def render_takeaway(takeaway):
+    if not takeaway:
+        return
+
+    safe_text = escape(takeaway)
+    st.markdown(
+        f"""
+        <div class="takeaway-card">
+            <span class="takeaway-highlight">
+                Takeaway line:
+            </span>
+            {safe_text}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+def render_assistant_message(message):
+    st.markdown(message["content"])
+
+    if message.get("figure") is not None:
+        st.plotly_chart(
+            message["figure"],
+            use_container_width=True,
+            config={"displayModeBar": False}
+        )
+
+    render_takeaway(message.get("takeaway"))
+
+    result = message.get("result")
+    if result:
+        with st.expander(
+            "🔍 View underlying data table",
+            expanded=False
+        ):
+            st.dataframe(
+                pd.DataFrame(result.get("data", [])),
+                use_container_width=True,
+                hide_index=True
+            )
+            st.json(result.get("statistics", {}))
 
 
 # ---------------------------------------------------------
@@ -388,22 +435,51 @@ with tabs[8]:
     st.info("Interactive query and custom chart builder will be connected in Phase 2.")
 
 with tabs[9]:
-    st.markdown("#### Ask (Level 3 - Natural Language Query)")
-    st.markdown(
-        """
-        <div class="chat-wireframe">
-            <div class="chat-bubble-user">
-                Which states improved their top 100 count since 2020?
-            </div>
-            <div class="chat-bubble-bot">
-                Here's the change in top-100 count by state:
-                <div style="border: 1px dashed #30363d; border-radius: 6px; padding: 20px; text-align: center; margin-top: 10px; color: #8b949e;">
-                    Plotly chart will render here via NL query parser
-                </div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    st.markdown("#### 🎓 NIRF AI Analyst")
+    st.caption(
+        "Ask questions about NIRF rankings using "
+        "natural language. Powered by local Qwen."
     )
-    st.caption("Natural language query executor is staged for Level 3 implementation.")
 
+    if "nirf_ask_messages" not in st.session_state:
+        st.session_state.nirf_ask_messages = []
+    if "nirf_ask_context" not in st.session_state:
+        st.session_state.nirf_ask_context = None
+
+    col_title, col_reset = st.columns([5, 1])
+    with col_reset:
+        if st.button("Clear chat", key="nirf_clear_chat"):
+            st.session_state.nirf_ask_messages = []
+            st.session_state.nirf_ask_context = None
+            st.rerun()
+
+    for message in st.session_state.nirf_ask_messages:
+        with st.chat_message(message["role"]):
+            if message["role"] == "assistant":
+                render_assistant_message(message)
+            else:
+                st.markdown(message["content"])
+
+    if question := st.chat_input("Ask a question about NIRF rankings"):
+        st.session_state.nirf_ask_messages.append(
+            {"role": "user", "content": question}
+        )
+        with st.chat_message("user"):
+            st.markdown(question)
+
+        response = process_chat_message(
+            question,
+            st.session_state.nirf_ask_context,
+        )
+        st.session_state.nirf_ask_context = response.get("context")
+        assistant_message = {
+            "role": "assistant",
+            "content": response["answer"],
+            "figure": response.get("figure"),
+            "takeaway": response.get("takeaway"),
+            "result": response.get("result"),
+        }
+        st.session_state.nirf_ask_messages.append(assistant_message)
+
+        with st.chat_message("assistant"):
+            render_assistant_message(assistant_message)
