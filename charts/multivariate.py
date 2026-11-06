@@ -1265,6 +1265,15 @@ def _render_note(note: Optional[str]) -> None:
         st.warning(note)
 
 
+def _takeaway_card(text: str) -> None:
+    """Renders the standard dark takeaway card without the side heading."""
+    import streamlit as st
+    st.markdown(
+        f"""<div class="takeaway-card">{text}</div>""",
+        unsafe_allow_html=True,
+    )
+
+
 def render_multivariate_tab(df: pd.DataFrame) -> None:
     """
     Main entry point for the Multivariate tab.  Teammates import and call this.
@@ -1333,12 +1342,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
                 f"strongest collective parameter is <b>{best_param}</b>. "
                 f"Radar shape reveals relative strengths across all {len(avail)} published parameters."
             )
-            st.markdown(
-                f"""<div class="takeaway-card">
-                <span class="takeaway-highlight">Takeaway line:</span> {takeaway}
-                </div>""",
-                unsafe_allow_html=True,
-            )
+            _takeaway_card(takeaway)
             _render_note(mv_note_missing_params(avail))
             with st.expander("📋 Top-5 raw data table", expanded=False):
                 st.dataframe(top5_df.rename(columns={"rank_num": "Rank"}), width="stretch")
@@ -1374,12 +1378,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
             )
         else:
             takeaway = f"No institutions fall in the High-RPC / Low-TLR quadrant at the current thresholds -- try lowering TLR or raising RPC threshold."
-        st.markdown(
-            f"""<div class="takeaway-card">
-            <span class="takeaway-highlight">Takeaway line:</span> {takeaway}
-            </div>""",
-            unsafe_allow_html=True,
-        )
+        _takeaway_card(takeaway)
         if not quad_df.empty:
             st.dataframe(
                 quad_df.rename(columns={"rank_num": "Rank", "score": "Overall Score"}),
@@ -1417,12 +1416,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
             )
         else:
             takeaway = "No institutions fall in the High-TLR / Low-PR quadrant at the current thresholds -- try adjusting the sliders."
-        st.markdown(
-            f"""<div class="takeaway-card">
-            <span class="takeaway-highlight">Takeaway line:</span> {takeaway}
-            </div>""",
-            unsafe_allow_html=True,
-        )
+        _takeaway_card(takeaway)
         if not quad_df.empty:
             st.dataframe(
                 quad_df.rename(columns={"rank_num": "Rank", "score": "Overall Score"}),
@@ -1462,12 +1456,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
                 f"Most improved: <b>{top_inst['name']}</b> (+{top_inst['score_change']:.2f} pts, "
                 f"biggest decline in {top_inst['strongest_decline']})."
             )
-            st.markdown(
-                f"""<div class="takeaway-card">
-                <span class="takeaway-highlight">Takeaway line:</span> {takeaway}
-                </div>""",
-                unsafe_allow_html=True,
-            )
+            _takeaway_card(takeaway)
             display_cols = (
                 ["name", "state", "score_change"]
                 + [c for c in result_df.columns if c.startswith("d") and c[1:] in NIRF_PARAMS]
@@ -1482,13 +1471,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
                 width="stretch",
             )
         else:
-            st.markdown(
-                """<div class="takeaway-card">
-                <span class="takeaway-highlight">Takeaway line:</span>
-                No institutions satisfy the criteria for the selected years and category.
-                </div>""",
-                unsafe_allow_html=True,
-            )
+            _takeaway_card("No institutions satisfy the criteria for the selected years and category.")
 
     # ================================================================
     # Q 5.5 -- Largest parameter spread
@@ -1514,12 +1497,7 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
                 f"(strongest: <b>{top_inst['strongest_param']}</b>, "
                 f"weakest: <b>{top_inst['weakest_param']}</b>)."
             )
-            st.markdown(
-                f"""<div class="takeaway-card">
-                <span class="takeaway-highlight">Takeaway line:</span> {takeaway}
-                </div>""",
-                unsafe_allow_html=True,
-            )
+            _takeaway_card(takeaway)
             _render_note(mv_note_missing_params(mv_available_params(mv_filter(df, year=year, category=category))))
             st.dataframe(
                 spread_df[["name", "state", "rank_num", "spread", "strongest_param", "weakest_param"]].rename(columns={

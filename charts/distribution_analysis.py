@@ -770,12 +770,10 @@ def q6_5_score_by_state(
 # ===========================================================================
 
 def _takeaway_card(text: str) -> None:
-    """Renders the standard dark takeaway card matching the Trends tab style."""
+    """Renders the standard dark takeaway card without the side heading."""
     import streamlit as st
     st.markdown(
-        f"""<div class="takeaway-card">
-        <span class="takeaway-highlight">Takeaway line:</span> {text}
-        </div>""",
+        f"""<div class="takeaway-card">{text}</div>""",
         unsafe_allow_html=True,
     )
 
