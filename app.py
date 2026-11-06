@@ -204,7 +204,7 @@ with st.sidebar:
         max_value=max_yr,
         value=(min_yr, max_yr),
         step=1,
-        help="Global filter: select year span",
+        help="Select year span",
     )
 
     # Category Filter
@@ -213,7 +213,7 @@ with st.sidebar:
         "Category",
         options=categories,
         index=0,
-        help="Global filter: NIRF category",
+        help="Select NIRF category",
     )
 
     # State Filter
@@ -222,12 +222,7 @@ with st.sidebar:
         "States",
         options=all_states,
         index=0,
-        help="Global filter: filter by state or all states",
-    )
-
-    st.markdown(
-        "<p style='color: #8b949e; font-size: 12px; margin-top: 25px;'>Global filters:<br>every tab reads these</p>",
-        unsafe_allow_html=True,
+        help="Filter by state or all states",
     )
 
 
@@ -314,7 +309,7 @@ with tabs[0]:
     # 2. Greatest Improvers
     elif question == "Which institutions have shown the greatest improvement in rank over the nine years?":
         with col_param:
-            top_n = st.slider("Top N improvers", min_value=3, max_value=15, value=5, key="top_improvers_slider")
+            top_n = st.slider("Top N improvers", min_value=1, max_value=15, value=5, key="top_improvers_slider")
 
         fig, takeaway = plot_greatest_improvers(
             df=df_full,
@@ -337,7 +332,7 @@ with tabs[0]:
     # 3. Largest Decliners
     elif question == "Which institutions have experienced the largest decline in ranking?":
         with col_param:
-            top_n = st.slider("Top N decliners", min_value=3, max_value=15, value=5, key="top_decliners_slider")
+            top_n = st.slider("Top N decliners", min_value=1, max_value=15, value=5, key="top_decliners_slider")
 
         fig, takeaway = plot_largest_decliners(
             df=df_full,
@@ -383,10 +378,10 @@ with tabs[0]:
             ]["name"].nunique()
 
             with col_param:
-                if st_inst_count > 3:
+                if st_inst_count > 1:
                     top_n = st.slider(
                         f"Top institutions in {selected_state}",
-                        min_value=3,
+                        min_value=1,
                         max_value=min(10, st_inst_count),
                         value=min(10, st_inst_count),
                         key="state_top_n_slider",
