@@ -22,17 +22,23 @@ ACCENT_RED = "#ef4444"
 TEXT_COLOR = "#e6edf3"
 MUTED_TEXT = "#8b949e"
 
-PALETTE = [
-    "#3b82f6",  # Electric Blue
-    "#60a5fa",  # Light Blue
-    "#93c5fd",  # Pale Blue
+# Textbook Qualitative Categorical Palette with high-contrast complementary pairs:
+# Pair 1: Sky Blue (#38bdf8) & Vibrant Orange (#f97316)
+# Pair 2: Emerald Green (#10b981) & Rose Red (#f43f5e)
+# Triad/Accent: Purple (#a855f7), Amber (#f59e0b), Cyan (#06b6d4), Pink (#ec4899)
+QUALITATIVE_PALETTE = [
     "#38bdf8",  # Sky Blue
-    "#22d3ee",  # Cyan
-    "#818cf8",  # Indigo
-    "#a78bfa",  # Purple
-    "#94a3b8",  # Slate
+    "#f97316",  # Vibrant Orange (complementary to Sky Blue)
+    "#10b981",  # Emerald Green
+    "#f43f5e",  # Rose Red (complementary to Emerald Green)
+    "#a855f7",  # Purple
+    "#f59e0b",  # Amber / Warm Gold
+    "#06b6d4",  # Cyan
+    "#ec4899",  # Pink
+    "#84cc16",  # Lime Green
+    "#6366f1",  # Indigo
 ]
-QUALITATIVE_PALETTE = PALETTE
+PALETTE = QUALITATIVE_PALETTE
 
 
 def apply_theme(

@@ -233,12 +233,21 @@ def plot_strongest_weakest_gap(
 
     top_gaps = sub.sort_values(by="param_gap", ascending=False).head(top_n).sort_values(by="param_gap", ascending=True)
 
+    param_complementary_colors = {
+        "TLR": "#38bdf8",  # Sky Blue (Teaching)
+        "RPC": "#f97316",  # Vibrant Orange (Research) - complementary to Blue
+        "GO":  "#10b981",  # Emerald Green (Graduation Outcomes)
+        "OI":  "#f43f5e",  # Rose Red (Outreach & Inclusivity) - complementary to Green
+        "PR":  "#a855f7",  # Purple (Perception)
+    }
+    bar_colors = [param_complementary_colors.get(p, LINE_COLOR) for p in top_gaps["best_param"]]
+
     fig = go.Figure(
         go.Bar(
             y=top_gaps["name"],
             x=top_gaps["param_gap"].round(1),
             orientation="h",
-            marker=dict(color=LINE_COLOR),
+            marker=dict(color=bar_colors),
             hovertemplate=(
                 "<b>%{y}</b><br>"
                 + "Gap: %{x:.1f} pts<br>"
@@ -666,13 +675,15 @@ def q5_1_top5_radar(
     available = [p for p in (params or NIRF_PARAMS) if p in top5_df.columns]
 
     if show_bar:
-        # ?? Grouped bar chart (alternative view) ??????????????????????????
-        for _, row in top5_df.iterrows():
+        # Grouped bar chart (alternative view)
+        for i, (_, row) in enumerate(top5_df.iterrows()):
             short = row["name"][:40] + ("..." if len(row["name"]) > 40 else "")
+            color = PALETTE[i % len(PALETTE)]
             fig.add_trace(go.Bar(
                 name=short,
                 x=available,
                 y=[row[p] for p in available],
+                marker_color=color,
                 hovertemplate=(
                     f"<b>{row['name']}</b><br>"
                     "Parameter: %{x}<br>"
@@ -689,7 +700,7 @@ def q5_1_top5_radar(
         fig.update_layout(barmode="group")
 
     else:
-        # ?? Radar / spider chart ???????????????????????????????????????????
+        # Radar / spider chart with complementary colors
         # Close the polygon by repeating the first param at the end
         radar_params = available + [available[0]]
 
@@ -702,14 +713,14 @@ def q5_1_top5_radar(
                 int(hex_col[3:5], 16),
                 int(hex_col[5:7], 16),
             )
-            fill_col = f"rgba({r_val},{g_val},{b_val},0.12)"
+            fill_col = f"rgba({r_val},{g_val},{b_val},0.15)"
 
             fig.add_trace(go.Scatterpolar(
                 r=values,
                 theta=radar_params,
                 fill="toself",
                 name=short,
-                line=dict(color=hex_col, width=2),
+                line=dict(color=hex_col, width=2.5),
                 fillcolor=fill_col,
                 hovertemplate=(
                     f"<b>{row['name']}</b><br>"
@@ -1169,8 +1180,18 @@ def q5_5_spread_bar(
     spread_df = spread_df.sort_values("spread", ascending=True).copy()
     spread_df["short_name"] = spread_df["name"].str[:45].str.strip()
 
-    # Bar colour encodes the strongest parameter for quick visual pattern matching
-    param_color = dict(zip(NIRF_PARAMS, PALETTE[: len(NIRF_PARAMS)]))
+    # Bar colour encodes the strongest parameter using high-contrast complementary hues:
+    # TLR: Sky Blue (#38bdf8) & RPC: Vibrant Orange (#f97316) -> Complementary pair
+    # GO: Emerald Green (#10b981) & OI: Rose Red (#f43f5e) -> Complementary pair
+    # PR: Purple (#a855f7)
+    param_complementary_colors = {
+        "TLR": "#38bdf8",  # Sky Blue (Teaching)
+        "RPC": "#f97316",  # Vibrant Orange (Research) - complement to Sky Blue
+        "GO":  "#10b981",  # Emerald Green (Graduation Outcomes)
+        "OI":  "#f43f5e",  # Rose Red (Outreach & Inclusivity) - complement to Green
+        "PR":  "#a855f7",  # Purple (Perception)
+    }
+    param_color = {p: param_complementary_colors.get(p, PALETTE[idx % len(PALETTE)]) for idx, p in enumerate(NIRF_PARAMS)}
     bar_colors  = [
         param_color.get(p, LINE_COLOR) for p in spread_df["strongest_param"]
     ]
