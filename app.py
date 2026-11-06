@@ -48,8 +48,7 @@ from charts.outliers import (
     plot_high_param_low_rank,
     plot_ranking_volatility,
 )
-from charts.multivariate import render_multivariate_tab
-from charts.distribution_analysis import render_distribution_tab
+from charts.explore import render_explore_tab
 
 # ---------------------------------------------------------
 # Page Configuration & Custom Monocolor Dark Theme CSS
@@ -231,7 +230,7 @@ with st.sidebar:
         max_value=max_yr,
         value=(min_yr, max_yr),
         step=1,
-        help="Global filter: select year span",
+        help="Select year span",
     )
 
     # Category Filter
@@ -240,7 +239,7 @@ with st.sidebar:
         "Category",
         options=categories,
         index=0,
-        help="Global filter: NIRF category",
+        help="Select NIRF category",
     )
 
     # State Filter
@@ -249,12 +248,7 @@ with st.sidebar:
         "States",
         options=all_states,
         index=0,
-        help="Global filter: filter by state or all states",
-    )
-
-    st.markdown(
-        "<p style='color: #8b949e; font-size: 12px; margin-top: 25px;'>Global filters:<br>every tab reads these</p>",
-        unsafe_allow_html=True,
+        help="Filter by state or all states",
     )
 
 
@@ -341,7 +335,7 @@ with tabs[0]:
     # 2. Greatest Improvers
     elif question == "Which institutions have shown the greatest improvement in rank over the nine years?":
         with col_param:
-            top_n = st.slider("Top N improvers", min_value=3, max_value=15, value=5, key="top_improvers_slider")
+            top_n = st.slider("Top N improvers", min_value=1, max_value=15, value=5, key="top_improvers_slider")
 
         fig, takeaway = plot_greatest_improvers(
             df=df_full,
@@ -364,7 +358,7 @@ with tabs[0]:
     # 3. Largest Decliners
     elif question == "Which institutions have experienced the largest decline in ranking?":
         with col_param:
-            top_n = st.slider("Top N decliners", min_value=3, max_value=15, value=5, key="top_decliners_slider")
+            top_n = st.slider("Top N decliners", min_value=1, max_value=15, value=5, key="top_decliners_slider")
 
         fig, takeaway = plot_largest_decliners(
             df=df_full,
@@ -410,10 +404,10 @@ with tabs[0]:
             ]["name"].nunique()
 
             with col_param:
-                if st_inst_count > 3:
+                if st_inst_count > 1:
                     top_n = st.slider(
                         f"Top institutions in {selected_state}",
-                        min_value=3,
+                        min_value=1,
                         max_value=min(10, st_inst_count),
                         value=min(10, st_inst_count),
                         key="state_top_n_slider",
@@ -453,6 +447,25 @@ with tabs[0]:
             </div>""",
             unsafe_allow_html=True,
         )
+
+    # Open in Explore Shortcut Button
+    c_btn1, c_btn2 = st.columns([1.4, 3])
+    with c_btn1:
+        if st.button("🚀 Open this Trends query in Explore", key="open_trends_in_explore"):
+            inst_param = selected_inst if "selected_inst" in locals() else None
+            steps_list = [{"op": "filter", "where": [{"field": "category", "op": "eq", "value": selected_category}]}]
+            if selected_state != "All states":
+                steps_list[0]["where"].append({"field": "state", "op": "eq", "value": selected_state})
+            if inst_param:
+                steps_list.append({"op": "filter", "where": [{"field": "name", "op": "eq", "value": inst_param}]})
+            steps_list.append({"op": "top", "n": 25})
+            st.session_state["explore_spec"] = {
+                "title": f"Explore: {question}",
+                "takeaway": "Loaded from Trends tab",
+                "steps": steps_list,
+                "chart": {"type": "line", "x": "year", "y": "rank", "invert_yaxis": True},
+            }
+            st.toast("✅ Query loaded into Explore! Click on the 'Explore' tab to modify.", icon="🚀")
 
     # Details on Demand Expander
     with st.expander("🔍 View underlying data table", expanded=False):
@@ -859,23 +872,12 @@ with tabs[3]:  # "Bivariate"
 
 
 # ---------------------------------------------------------
-# TAB 5: Multivariate (Teammate Module)
+# Placeholder Tabs (Multivariate, Distribution, Transitions)
 # ---------------------------------------------------------
-with tabs[4]:
-    render_multivariate_tab(df_full)
-
-# ---------------------------------------------------------
-# TAB 6: Distribution (Teammate Module)
-# ---------------------------------------------------------
-with tabs[5]:
-    render_distribution_tab(df_full)
-
-# ---------------------------------------------------------
-# TAB 7: Transitions (Placeholder)
-# ---------------------------------------------------------
-with tabs[6]:
-    st.markdown("#### Transitions Visualizations")
-    st.info("The Transitions questions from Annexure A will be activated in the next step.")
+for idx, tab_name in enumerate(["Multivariate", "Distribution", "Transitions"], start=4):
+    with tabs[idx]:
+        st.markdown(f"#### {tab_name} Visualizations")
+        st.info(f"The {tab_name} questions from Annexure A will be activated in the next step.")
 
 # ---------------------------------------------------------
 # TAB 8: Outlier Detection & Performance Gaps (Annexure A §8)
@@ -1085,28 +1087,11 @@ with tabs[7]:
             st.dataframe(vol_summary, use_container_width=True)
 
 with tabs[8]:
-    st.markdown("#### Explore (Level 2)")
-    st.info("Interactive query and custom chart builder will be connected in Phase 2.")
+    render_explore_tab(df_full, df_filtered)
 
 with tabs[9]:
     st.markdown("#### Ask (Level 3 - Natural Language Query)")
-    st.markdown(
-        """
-        <div class="chat-wireframe">
-            <div class="chat-bubble-user">
-                Which states improved their top 100 count since 2020?
-            </div>
-            <div class="chat-bubble-bot">
-                Here's the change in top-100 count by state:
-                <div style="border: 1px dashed #30363d; border-radius: 6px; padding: 20px; text-align: center; margin-top: 10px; color: #8b949e;">
-                    Plotly chart will render here via NL query parser
-                </div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.caption("Natural language query executor is staged for Level 3 implementation.")
+    st.info("The Ask tab (Level 3 natural language query interface) is staged for Phase 3.")
 
 
 
