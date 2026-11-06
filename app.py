@@ -377,23 +377,48 @@ with tabs[0]:
             unsafe_allow_html=True,
         )
 
-    # 5. Consistently Top 10
+    # 5. Consistently Top 10 (or Top in State)
     elif question == "Which institutions have remained consistently in the top 10 across multiple years?":
-        with col_param:
-            min_years = st.slider(
-                "Minimum years in Top 10",
-                min_value=2,
-                max_value=max_yr - min_yr + 1,
-                value=min(5, max_yr - min_yr + 1),
-                key="consistently_top10_slider",
-            )
+        if selected_state != "All states":
+            st_inst_count = df_full[
+                (df_full["category"] == selected_category) & (df_full["state"] == selected_state)
+            ]["name"].nunique()
 
-        fig, takeaway = plot_consistently_top10(
-            df=df_full,
-            category=selected_category,
-            min_years=min_years,
-            state=selected_state,
-        )
+            with col_param:
+                if st_inst_count > 3:
+                    top_n = st.slider(
+                        f"Top institutions in {selected_state}",
+                        min_value=3,
+                        max_value=min(10, st_inst_count),
+                        value=min(10, st_inst_count),
+                        key="state_top_n_slider",
+                    )
+                else:
+                    top_n = max(1, st_inst_count)
+                    st.caption(f"Showing all {st_inst_count} ranked institutions in {selected_state}")
+
+            fig, takeaway = plot_consistently_top10(
+                df=df_full,
+                category=selected_category,
+                state=selected_state,
+                top_n=top_n,
+            )
+        else:
+            with col_param:
+                min_years = st.slider(
+                    "Minimum years in Top 10",
+                    min_value=2,
+                    max_value=max_yr - min_yr + 1,
+                    value=min(5, max_yr - min_yr + 1),
+                    key="consistently_top10_slider",
+                )
+
+            fig, takeaway = plot_consistently_top10(
+                df=df_full,
+                category=selected_category,
+                min_years=min_years,
+                state="All states",
+            )
 
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 

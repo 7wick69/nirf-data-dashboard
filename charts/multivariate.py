@@ -242,3 +242,4 @@ def plot_strongest_weakest_gap(
         f"({max_gap_inst['best_param']} vs {max_gap_inst['worst_param']})."
     )
     return fig, takeaway
+

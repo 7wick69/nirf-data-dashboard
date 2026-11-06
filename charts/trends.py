@@ -394,25 +394,93 @@ def plot_consistently_top10(
     category: str = "Overall",
     min_years: int = 5,
     state: Optional[str] = None,
+    top_n: int = 10,
 ) -> Tuple[go.Figure, str]:
     """
     Question 5: Which institutions have remained consistently in the top 10 across multiple years?
-    Multi-line trajectory using textbook visualization rules:
+    - If a specific state is selected: Renders the Top 10 institutions within that state across years.
+    - If 'All states': Renders institutions consistently in the National Top 10 for min_years+.
+    Follows textbook visualization rules:
       - 10 distinct, non-confusing qualitative hues (ColorBrewer/Okabe-Ito based)
       - Redundant geometric marker symbols (circle, square, diamond, triangle, etc.)
       - Inverted Y-axis
-      - State-aware filtering
+      - Dedicated right legend margin (zero collision with title)
     """
-    cat_df = df[df["category"] == category].copy()
+    # -------------------------------------------------------------
+    # 1. State-Level Top 10 Selection
+    # -------------------------------------------------------------
     if state and state != "All states":
-        cat_df = cat_df[cat_df["state"] == state]
+        st_df = df[(df["category"] == category) & (df["state"] == state)].copy()
+        if st_df.empty:
+            fig = go.Figure()
+            return (
+                apply_theme(fig, title=f"No institutions found in {state}"),
+                f"No ranking records found for {state} in category '{category}'.",
+            )
 
-    if cat_df.empty:
+        # Rank institutions in this state by their best (lowest) national rank, then mean rank
+        st_perf = (
+            st_df.groupby("name")
+            .agg(
+                best_rank=("rank", "min"),
+                avg_rank=("rank", "mean"),
+                appearances=("year", "nunique"),
+            )
+            .sort_values(by=["best_rank", "avg_rank", "appearances"])
+        )
+
+        qualifying = st_perf.head(top_n).index.tolist()
+        sub_df = st_df[st_df["name"].isin(qualifying)].sort_values(by="year")
+
         fig = go.Figure()
-        scope_msg = f" in {state}" if state and state != "All states" else ""
-        return apply_theme(fig, title=f"No Top 10 data{scope_msg}"), f"No ranking records found for category '{category}'{scope_msg}."
+        for idx, inst in enumerate(qualifying):
+            inst_data = sub_df[sub_df["name"] == inst]
+            color = QUALITATIVE_PALETTE[idx % len(QUALITATIVE_PALETTE)]
+            symbol = MARKER_SYMBOLS[idx % len(MARKER_SYMBOLS)]
+            short_label = get_clean_short_name(inst)
 
-    # Identify institutions ranked <= 10
+            fig.add_trace(
+                go.Scatter(
+                    x=inst_data["year"],
+                    y=inst_data["rank"],
+                    mode="lines+markers",
+                    name=short_label,
+                    line=dict(color=color, width=2.5),
+                    marker=dict(symbol=symbol, size=8, color=color, line=dict(width=1, color="#0f1013")),
+                    hovertemplate="<b>%{data.name}</b><br>Year: %{x}<br>National NIRF Rank: #%{y}<extra></extra>",
+                )
+            )
+
+        fig = apply_theme(
+            fig,
+            title=f"Top {len(qualifying)} Institutions in {state} ({category})",
+            xaxis_title="Ranking Year",
+            yaxis_title="NIRF National Rank (Inverted: 1 is best)",
+            invert_yaxis=True,
+            show_legend=True,
+            legend_position="right",
+        )
+        fig.update_xaxes(tickmode="linear", tick0=sub_df["year"].min(), dtick=1)
+
+        all_ranks = sub_df["rank"].dropna().astype(int)
+        if not all_ranks.empty:
+            min_r = max(1, all_ranks.min() - 1)
+            max_r = min(200, all_ranks.max() + 2)
+            fig.update_yaxes(range=[max_r, min_r])
+
+        names_summary = ", ".join([get_clean_short_name(q) for q in qualifying[:4]])
+        takeaway = (
+            f"Top {len(qualifying)} institutions in {state}: {names_summary}"
+            + ("..." if len(qualifying) > 4 else ".")
+        )
+        return fig, takeaway
+
+    # -------------------------------------------------------------
+    # 2. National (All-India) Consistently Top 10 Selection
+    # -------------------------------------------------------------
+    cat_df = df[df["category"] == category].copy()
+
+    # Identify institutions ranked <= 10 nationally
     top10_insts = (
         cat_df[cat_df["rank"] <= 10]
         .groupby("name")["year"]
@@ -423,11 +491,11 @@ def plot_consistently_top10(
 
     qualifying = top10_insts[top10_insts["appearances"] >= min_years]["name"].tolist()
 
-    # If fewer qualify under strict min_years, pick top available (up to 8)
+    # If fewer qualify under strict min_years, pick top available (up to 10)
     if not qualifying:
-        qualifying = top10_insts.head(8)["name"].tolist()
+        qualifying = top10_insts.head(top_n)["name"].tolist()
     else:
-        qualifying = qualifying[:10]  # Cap at 10 for visual clarity per textbook rules
+        qualifying = qualifying[:top_n]
 
     if not qualifying:
         fig = go.Figure()
@@ -441,7 +509,6 @@ def plot_consistently_top10(
         inst_data = sub_df[sub_df["name"] == inst]
         color = QUALITATIVE_PALETTE[idx % len(QUALITATIVE_PALETTE)]
         symbol = MARKER_SYMBOLS[idx % len(MARKER_SYMBOLS)]
-
         short_label = get_clean_short_name(inst)
 
         fig.add_trace(
@@ -452,14 +519,13 @@ def plot_consistently_top10(
                 name=short_label,
                 line=dict(color=color, width=2.5),
                 marker=dict(symbol=symbol, size=8, color=color, line=dict(width=1, color="#0f1013")),
-                hovertemplate="<b>%{data.name}</b><br>Year: %{x}<br>Rank: #%{y}<extra></extra>",
+                hovertemplate="<b>%{data.name}</b><br>Year: %{x}<br>National NIRF Rank: #%{y}<extra></extra>",
             )
         )
 
-    scope_title = f" in {state}" if state and state != "All states" else ""
     fig = apply_theme(
         fig,
-        title=f"Consistently Top 10 Ranked Institutions ({category}{scope_title})",
+        title=f"Consistently Top 10 Ranked Institutions ({category})",
         xaxis_title="Ranking Year",
         yaxis_title="NIRF Rank (Inverted: 1 is best)",
         invert_yaxis=True,
@@ -469,7 +535,6 @@ def plot_consistently_top10(
 
     fig.update_xaxes(tickmode="linear", tick0=sub_df["year"].min(), dtick=1)
 
-    # Calculate nice y-axis tick bounds
     all_ranks = sub_df["rank"].dropna().astype(int)
     if not all_ranks.empty:
         min_r = max(1, all_ranks.min() - 1)

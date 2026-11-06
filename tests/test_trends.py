@@ -66,11 +66,20 @@ def test_trends_plots():
     # Check that state vs national benchmark trace exists
     assert any("All-India" in t.name for t in fig4_state.data)
 
-    # 5. Consistently Top 10
-    fig5, takeaway5 = plot_consistently_top10(df, "Overall", min_years=5)
+    # 5. Consistently Top 10 (All India vs State Level Top 10)
+    fig5, takeaway5 = plot_consistently_top10(df, "Overall", min_years=5, state="All states")
     assert fig5 is not None
     assert "institutions maintained Top 10" in takeaway5
     assert fig5.layout.yaxis.autorange == "reversed"
+
+    # 5b. State-Level Top 10 (Karnataka should return 10 institutions, Telangana should return 6)
+    fig5_kar, takeaway5_kar = plot_consistently_top10(df, "Overall", state="Karnataka")
+    assert len(fig5_kar.data) == 10
+    assert "Top 10 institutions in Karnataka" in takeaway5_kar
+
+    fig5_tel, takeaway5_tel = plot_consistently_top10(df, "Overall", state="Telangana")
+    assert len(fig5_tel.data) == 6
+    assert "Top 6 institutions in Telangana" in takeaway5_tel
 
     # Check textbook qualitative palette & redundant marker symbols
     traces = fig5.data

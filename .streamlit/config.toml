@@ -13,3 +13,4 @@ gatherUsageStats = false
 headless = true
 enableCORS = false
 enableXsrfProtection = false
+

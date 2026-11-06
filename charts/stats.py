@@ -388,3 +388,4 @@ def plot_dispersion_over_time(
 
     takeaway = f"Score dispersion (IQR) moved from {stats['iqr'].iloc[0]:.1f} in {stats['year'].iloc[0]} to {stats['iqr'].iloc[-1]:.1f} in {stats['year'].iloc[-1]}."
     return fig, takeaway
+
