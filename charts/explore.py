@@ -4,7 +4,7 @@ charts/explore.py
 Tableau-Style Visual Analytics Workbench (Level 2 Explore Tab) — NIRF Interactive Dashboard.
 Replicates Tableau's core visual architecture:
   - Shelves: Columns (X), Rows (Y), Marks (Chart Type & Color Encoding), Filters
-  - Automatic Aggregation: Averages/Sums measures across dimensions to eliminate overlapping/glitchy bars
+  - Automatic Aggregation: Automatically averages/sums measures across dimensions to eliminate overlapping/glitchy bars
   - Smart Marks Inference: Replicates Tableau's 'Show Me' logic
   - Automatic Layout: Switches to horizontal bars for long labels (institutions/states)
   - Statistical Analysis: Dynamic Pearson correlation (r), R², and OLS trendlines
@@ -170,7 +170,7 @@ def render_explore_tab(df_full: pd.DataFrame, df_filtered: pd.DataFrame):
             st.markdown('<div class="shelf-header">Rows (Y Shelf)</div>', unsafe_allow_html=True)
             row_display_name = st.selectbox("Measure", list(MEASURES.keys()), index=0, key="tab_row_meas")
             y_field = MEASURES[row_display_name]
-            
+
             # Aggregation Selector (Tableau's core strength)
             agg_display = st.selectbox("Aggregation", list(AGG_FUNCS.keys()), index=0, key="tab_agg_func")
             agg_code = AGG_FUNCS[agg_display]

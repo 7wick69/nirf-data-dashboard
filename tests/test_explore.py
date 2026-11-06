@@ -3,8 +3,8 @@ tests/test_explore.py
 
 Unit tests for Level 2 Explore Module (Tableau Workbench):
   1. Pearson correlation and R2 statistical calculations
-  2. Dimension + Measure aggregation logic (Tableau Shelves)
-  3. Automatic horizontal layout and inverted Y-axis for ranks
+  2. Aggregation logic for dimensions & measures (Tableau Shelves)
+  3. Unique group guarantees (no overlapping bars)
 """
 
 import pytest
@@ -29,9 +29,9 @@ def test_compute_pearson_r():
     assert calculate_pearson(df, "name", "score") is None
 
 
-def test_tableau_aggregation_logic():
+def test_tableau_shelf_aggregation():
     df = load_nirf_data()
-    # Simulate Tableau shelf: Columns = state (Dimension), Rows = score (Measure, AVG)
+    # Simulate Tableau Columns = state (Dimension), Rows = score (Measure, AVG)
     sub = df[df["year"] == 2024]
     agg = sub.groupby("state")["score"].mean().reset_index()
     assert not agg.empty

@@ -466,23 +466,7 @@ with tabs[8]:
 
 with tabs[9]:
     st.markdown("#### Ask (Level 3 - Natural Language Query)")
-    st.markdown(
-        """
-        <div class="chat-wireframe">
-            <div class="chat-bubble-user">
-                Which states improved their top 100 count since 2020?
-            </div>
-            <div class="chat-bubble-bot">
-                Here's the change in top-100 count by state:
-                <div style="border: 1px dashed #30363d; border-radius: 6px; padding: 20px; text-align: center; margin-top: 10px; color: #8b949e;">
-                    Plotly chart will render here via NL query parser
-                </div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-    st.caption("Natural language query executor is staged for Level 3 implementation.")
+    st.info("The Ask tab (Level 3 natural language query interface) is staged for Phase 3.")
 
 
 
