@@ -1,0 +1,33 @@
+{
+  "title": "Consistently Top 10 Ranked Institutions",
+  "takeaway": "Institutions maintaining top 10 status across multiple years",
+  "steps": [
+    {
+      "op": "filter",
+      "where": [
+        {
+          "field": "category",
+          "op": "eq",
+          "value": "Overall"
+        },
+        {
+          "field": "rank",
+          "op": "lte",
+          "value": 10
+        }
+      ]
+    },
+    {
+      "op": "sort",
+      "by": "year",
+      "order": "asc"
+    }
+  ],
+  "chart": {
+    "type": "line",
+    "x": "year",
+    "y": "rank",
+    "color": "name",
+    "invert_yaxis": true
+  }
+}

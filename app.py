@@ -259,10 +259,6 @@ tabs = st.tabs([
     "Ask",
 ])
 
-
-# ---------------------------------------------------------
-# TAB 1: Trends (P0 Focus)
-# ---------------------------------------------------------
 with tabs[0]:
     col_q, col_param = st.columns([1.6, 1.1])
 
@@ -438,11 +434,14 @@ with tabs[0]:
             table_df = table_df[table_df["name"] == selected_inst]
         
         display_cols = [c for c in ["year", "name", "state", "rank", "score", "rank_change", "TLR", "RPC", "GO", "OI", "PR"] if c in table_df.columns]
-        st.dataframe(table_df[display_cols].sort_values(by=["year", "rank"] if "rank" in table_df.columns else "year"), use_container_width=True)
+        result_sub_df = table_df[display_cols].sort_values(by=["year", "rank"] if "rank" in table_df.columns else "year")
+        st.dataframe(result_sub_df, use_container_width=True)
+        csv_bytes = result_sub_df.to_csv(index=False).encode("utf-8")
+        st.download_button("Download CSV", data=csv_bytes, file_name="trends_data.csv", mime="text/csv")
 
 
 # ---------------------------------------------------------
-# Placeholder Tabs (Next Phases)
+# Placeholder Tabs (Next Phases / Teammate Modules)
 # ---------------------------------------------------------
 for idx, tab_name in enumerate(["Geo", "Univariate", "Bivariate", "Multivariate", "Distribution", "Transitions", "Outliers"], start=1):
     with tabs[idx]:
@@ -477,4 +476,6 @@ with tabs[9]:
         unsafe_allow_html=True,
     )
     st.caption("Natural language query executor is staged for Level 3 implementation.")
+
+
 

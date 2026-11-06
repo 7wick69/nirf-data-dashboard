@@ -1,0 +1,27 @@
+{
+  "title": "Overall NIRF Rank Trajectory (2017\u20132025)",
+  "takeaway": "Tracks annual rank trajectory with inverted y-axis",
+  "steps": [
+    {
+      "op": "filter",
+      "where": [
+        {
+          "field": "category",
+          "op": "eq",
+          "value": "Overall"
+        }
+      ]
+    },
+    {
+      "op": "sort",
+      "by": "year",
+      "order": "asc"
+    }
+  ],
+  "chart": {
+    "type": "line",
+    "x": "year",
+    "y": "rank",
+    "invert_yaxis": true
+  }
+}
