@@ -638,8 +638,9 @@ with tabs[1]:
         with st.expander("🔍 View underlying data table", expanded=False):
             sub_q2 = df_full[(df_full["category"] == selected_category) & (df_full["rank"] <= 100)]
             piv_q2 = sub_q2.pivot_table(index="state", columns="year", values="name", aggfunc="count", fill_value=0)
-            piv_q2["Total (2017-2025)"] = piv_q2.sum(axis=1)
-            st.dataframe(piv_q2.sort_values(by="Total (2017-2025)", ascending=False), use_container_width=True)
+            tot_col = f"Total ({min_yr}-{max_yr})"
+            piv_q2[tot_col] = piv_q2.sum(axis=1)
+            st.dataframe(piv_q2.sort_values(by=tot_col, ascending=False), use_container_width=True)
 
     # 3. Improved representation in Top 100
     elif geo_question == "Which states have improved their representation in the Top 100 over time?":

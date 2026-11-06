@@ -240,15 +240,17 @@ def plot_top_states_top100(
     runner = state_counts.iloc[1]["state"] if len(state_counts) > 1 else None
     runner_cnt = int(state_counts.iloc[1]["count"]) if len(state_counts) > 1 else 0
 
+    year_str = str(year) if year is not None else "All Years in Range"
+    top_share_str = f"{top_pct:.1f}% of Top 100" if year is not None else f"{top_pct:.1f}% of all Top 100 entries"
     if runner:
         takeaway = (
-            f"In {year or 'selected period'} ({category}), {top_state} leads with {top_cnt} institutions "
-            f"({top_pct:.1f}% of Top 100), followed by {runner} with {runner_cnt}."
+            f"In {year_str} ({category}), {top_state} leads with {top_cnt} institutions "
+            f"({top_share_str}), followed by {runner} with {runner_cnt}."
         )
     else:
         takeaway = (
-            f"In {year or 'selected period'} ({category}), {top_state} leads with {top_cnt} institutions "
-            f"({top_pct:.1f}% of Top 100)."
+            f"In {year_str} ({category}), {top_state} leads with {top_cnt} institutions "
+            f"({top_share_str})."
         )
 
     fig = go.Figure()
@@ -335,7 +337,7 @@ def plot_geo_distribution_over_time(
         takeaway = (
             f"In {selected_year} ({category}), top institutions are clustered in {top_row['display_state']} ({top_row['count']})"
             + (f" and {runner_row['display_state']} ({runner_row['count']})" if runner_row is not None else "")
-            + ", showing continuous regional density in Southern and Western India."
+            + ", leading the concentration of Top 100 institutions."
         )
 
         fig = go.Figure(
@@ -420,6 +422,7 @@ def plot_geo_distribution_over_time(
             show_legend=True,
         )
         fig.update_layout(barmode="stack", height=650)
+        fig.update_xaxes(type="category")
         takeaway = (
             f"Between 2017 and 2025 ({category}), {top_states[0]} and {top_states[1] if len(top_states)>1 else ''} "
             f"consistently anchored the highest share of Top 100 institutions."
@@ -566,10 +569,13 @@ def plot_state_representation_improvement(
         f"{decliners.iloc[0]['state']} ({decliners.iloc[0]['delta']})" if not decliners.empty else "None"
     )
 
-    takeaway = (
-        f"From {start_year} to {end_year} ({category}): Top improvers were {top_imp_text}{second_imp_text}; "
-        f"largest decline occurred in {top_dec_text}."
-    )
+    if start_year == end_year:
+        takeaway = f"Same comparison year selected ({start_year}): No net representation shift for {category}."
+    else:
+        takeaway = (
+            f"From {start_year} to {end_year} ({category}): Top improvers were {top_imp_text}{second_imp_text}; "
+            f"largest decline occurred in {top_dec_text}."
+        )
 
     fig = go.Figure()
 
@@ -697,24 +703,21 @@ def plot_state_rank_comparison_map(
                 "geo_state": geo_st,
                 "display_state": csv_st,
                 "val": 2,
-                "med": meds.get(state1, 0),
-                "cnt": counts_map.get(state1, 0),
+                "desc": f"Median Rank: #{meds.get(state1, 0):.1f}<br>Ranked Institutions: {counts_map.get(state1, 0)}",
             })
         elif csv_st == state2:
             records.append({
                 "geo_state": geo_st,
                 "display_state": csv_st,
                 "val": 1,
-                "med": meds.get(state2, 0),
-                "cnt": counts_map.get(state2, 0),
+                "desc": f"Median Rank: #{meds.get(state2, 0):.1f}<br>Ranked Institutions: {counts_map.get(state2, 0)}",
             })
         else:
             records.append({
                 "geo_state": geo_st,
                 "display_state": csv_st,
                 "val": 0,
-                "med": 0,
-                "cnt": 0,
+                "desc": "<i>Not in comparison</i>",
             })
     counts = pd.DataFrame(records)
 
@@ -737,11 +740,10 @@ def plot_state_rank_comparison_map(
             showscale=False,
             marker_line_color="#475569",
             marker_line_width=0.8,
-            customdata=counts[["display_state", "med", "cnt"]],
+            customdata=counts[["display_state", "desc"]],
             hovertemplate=(
                 "<b>%{customdata[0]}</b><br>"
-                + "Median Rank: #%{customdata[1]:.1f}<br>"
-                + "Ranked Entries: %{customdata[2]}<extra></extra>"
+                + "%{customdata[1]}<extra></extra>"
             ),
         )
     )
@@ -828,6 +830,7 @@ def plot_state_rank_comparison(
                     )
                 )
         fig.update_layout(boxmode="group")
+        fig.update_xaxes(type="category")
     else:
         for st_name, color, med in [(state1, PALETTE[0], med1), (state2, PALETTE[4], med2)]:
             st_sub = sub[sub["state"] == st_name]
@@ -894,7 +897,8 @@ def plot_new_entrant_map(
     new_ent = first_appearances.merge(name_state, on="name")
     new_ent = new_ent[new_ent["first_year"] > base_year]
 
-    if selected_entry_year != "All Years (2018–2025)":
+    is_all_years = str(selected_entry_year).startswith("All")
+    if not is_all_years:
         new_ent = new_ent[new_ent["first_year"] == int(selected_entry_year)]
 
     counts_dict = new_ent["state"].value_counts().to_dict()
@@ -982,7 +986,8 @@ def plot_new_entrant_states(
     new_ent = first_appearances.merge(name_state, on="name")
     new_ent = new_ent[new_ent["first_year"] > base_year]
 
-    if selected_entry_year != "All Years (2018–2025)":
+    is_all_years = str(selected_entry_year).startswith("All")
+    if not is_all_years:
         new_ent = new_ent[new_ent["first_year"] == int(selected_entry_year)]
 
     if new_ent.empty:
@@ -1002,14 +1007,15 @@ def plot_new_entrant_states(
     runner_st = state_counts.iloc[1]["state"] if len(state_counts) > 1 else None
     runner_cnt = int(state_counts.iloc[1]["new_entrants_count"]) if len(state_counts) > 1 else 0
 
+    period_label = f"In {selected_entry_year}" if not is_all_years else f"Since {base_year}"
     if runner_st:
         takeaway = (
-            f"Since {base_year} ({category}), {top_st} ({top_cnt}) and {runner_st} ({runner_cnt}) "
+            f"{period_label} ({category}), {top_st} ({top_cnt}) and {runner_st} ({runner_cnt}) "
             f"produced the largest number of newly appearing institutions in NIRF rankings."
         )
     else:
         takeaway = (
-            f"Since {base_year} ({category}), {top_st} produced the largest number of newly appearing "
+            f"{period_label} ({category}), {top_st} produced the largest number of newly appearing "
             f"institutions ({top_cnt}) in NIRF rankings."
         )
 
