@@ -21,6 +21,7 @@ from charts.trends import (
     plot_average_score_trend,
     plot_consistently_top10,
 )
+from charts.explore import render_explore_tab
 
 # ---------------------------------------------------------
 # Page Configuration & Custom Monocolor Dark Theme CSS
@@ -420,6 +421,25 @@ with tabs[0]:
             unsafe_allow_html=True,
         )
 
+    # Open in Explore Shortcut Button
+    c_btn1, c_btn2 = st.columns([1.4, 3])
+    with c_btn1:
+        if st.button("🚀 Open this Trends query in Explore", key="open_trends_in_explore"):
+            inst_param = selected_inst if "selected_inst" in locals() else None
+            steps_list = [{"op": "filter", "where": [{"field": "category", "op": "eq", "value": selected_category}]}]
+            if selected_state != "All states":
+                steps_list[0]["where"].append({"field": "state", "op": "eq", "value": selected_state})
+            if inst_param:
+                steps_list.append({"op": "filter", "where": [{"field": "name", "op": "eq", "value": inst_param}]})
+            steps_list.append({"op": "top", "n": 25})
+            st.session_state["explore_spec"] = {
+                "title": f"Explore: {question}",
+                "takeaway": "Loaded from Trends tab",
+                "steps": steps_list,
+                "chart": {"type": "line", "x": "year", "y": "rank", "invert_yaxis": True},
+            }
+            st.toast("✅ Query loaded into Explore! Click on the 'Explore' tab to modify.", icon="🚀")
+
     # Details on Demand Expander
     with st.expander("🔍 View underlying data table", expanded=False):
         table_df = df_filtered.copy()
@@ -442,8 +462,7 @@ for idx, tab_name in enumerate(["Geo", "Univariate", "Bivariate", "Multivariate"
         st.info(f"Phase 1 focused on `trends.py` validation. The {tab_name} questions from Annexure A will be activated in the next step.")
 
 with tabs[8]:
-    st.markdown("#### Explore (Level 2)")
-    st.info("Interactive query and custom chart builder will be connected in Phase 2.")
+    render_explore_tab(df_full, df_filtered)
 
 with tabs[9]:
     st.markdown("#### Ask (Level 3 - Natural Language Query)")
