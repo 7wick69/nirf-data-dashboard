@@ -23,7 +23,9 @@ from charts.trends import (
 )
 import importlib
 import charts.bivariate
+import charts.outliers
 importlib.reload(charts.bivariate)
+importlib.reload(charts.outliers)
 from charts.bivariate import (
     plot_scatter_marginals,
     plot_correlation_vs_weight,
@@ -38,6 +40,13 @@ from charts.bivariate import (
     plot_parameter_correlations,
     plot_tlr_vs_rpc,
     plot_rpc_overall_correlation_over_years,
+)
+from charts.outliers import (
+    plot_connected_scatter_research_outliers,
+    plot_research_vs_teaching_gap,
+    plot_score_volatility_trends,
+    plot_high_param_low_rank,
+    plot_ranking_volatility,
 )
 from charts.multivariate import render_multivariate_tab
 from charts.distribution_analysis import render_distribution_tab
@@ -849,16 +858,231 @@ with tabs[3]:  # "Bivariate"
         )
 
 
-# Remaining tabs (Multivariate & Distribution from teammates, plus placeholders)
-for idx, tab_name in enumerate(["Multivariate", "Distribution", "Transitions", "Outliers"], start=4):
-    with tabs[idx]:
-        if tab_name == "Multivariate":
-            render_multivariate_tab(df_full)
-        elif tab_name == "Distribution":
-            render_distribution_tab(df_full)
-        else:
-            st.markdown(f"#### {tab_name} Visualizations")
-            st.info(f"The {tab_name} questions from Annexure A will be activated in the next step.")
+# ---------------------------------------------------------
+# TAB 5: Multivariate (Teammate Module)
+# ---------------------------------------------------------
+with tabs[4]:
+    render_multivariate_tab(df_full)
+
+# ---------------------------------------------------------
+# TAB 6: Distribution (Teammate Module)
+# ---------------------------------------------------------
+with tabs[5]:
+    render_distribution_tab(df_full)
+
+# ---------------------------------------------------------
+# TAB 7: Transitions (Placeholder)
+# ---------------------------------------------------------
+with tabs[6]:
+    st.markdown("#### Transitions Visualizations")
+    st.info("The Transitions questions from Annexure A will be activated in the next step.")
+
+# ---------------------------------------------------------
+# TAB 8: Outlier Detection & Performance Gaps (Annexure A §8)
+# ---------------------------------------------------------
+with tabs[7]:
+    OUTLIER_VIEWS = [
+        "1. Connected Trajectory: High Research vs. Overall Score",
+        "2. Research vs. Teaching Gap (TLR vs. RPC Parity)",
+        "3. Score Volatility (Steep Vertical Drops & Climbs)",
+        "4. High Parameter, Low Rank Anomaly",
+        "5. Ranking Volatility (Box Plot Spread & Sequence Trajectories)",
+    ]
+
+    col_oq, col_op = st.columns([1.6, 1.1])
+    with col_oq:
+        outlier_selection = st.radio(
+            "Select Outlier Analysis Method",
+            options=OUTLIER_VIEWS,
+            index=0,
+            horizontal=False,
+            key="outlier_view_radio",
+        )
+
+    # 1. Connected Scatter Plot (Research vs Overall Trajectory)
+    if outlier_selection == OUTLIER_VIEWS[0]:
+        with col_op:
+            top_n_insts = st.slider("Number of outlier institutions to track", min_value=3, max_value=10, value=5, key="outlier_q1_topn")
+            inst_options = get_institutions_list(df_full, selected_category)
+            custom_inst_pick = st.multiselect(
+                "Optional: Override with specific institutions",
+                options=inst_options,
+                default=[],
+                key="outlier_q1_custom",
+                help="Leave empty to automatically track the institutions with the highest research-to-overall score residuals.",
+            )
+
+        fig, takeaway = plot_connected_scatter_research_outliers(
+            df=df_full,
+            category=selected_category,
+            state=None if selected_state == "All states" else selected_state,
+            top_n=top_n_insts,
+            selected_institutions=custom_inst_pick if custom_inst_pick else None,
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.markdown(
+            f"""<div class="takeaway-card">
+            <span class="takeaway-highlight">Takeaway:</span> {takeaway}
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        with st.expander("🔍 View underlying trajectory data", expanded=False):
+            sub_q1 = df_full[df_full["category"] == selected_category]
+            if selected_state != "All states":
+                sub_q1 = sub_q1[sub_q1["state"] == selected_state]
+            show_cols = ["year", "name", "state", "rank", "score", "RPC", "TLR"]
+            st.dataframe(sub_q1[show_cols].sort_values(["name", "year"]), use_container_width=True)
+
+    # 2. Research vs Teaching Gap
+    elif outlier_selection == OUTLIER_VIEWS[1]:
+        with col_op:
+            years_available = sorted(df_full["year"].dropna().unique().tolist())
+            q2_year = st.selectbox(
+                "Select Year",
+                options=years_available,
+                index=len(years_available) - 1,
+                key="outlier_q2_year",
+            )
+            q2_top_n = st.slider("Outliers to annotate", 3, 12, 6, key="outlier_q2_topn")
+
+        fig, takeaway = plot_research_vs_teaching_gap(
+            df=df_full,
+            year=q2_year,
+            category=selected_category,
+            state=None if selected_state == "All states" else selected_state,
+            top_n_outliers=q2_top_n,
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.markdown(
+            f"""<div class="takeaway-card">
+            <span class="takeaway-highlight">Takeaway:</span> {takeaway}
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        with st.expander("🔍 View Research vs. Teaching comparison table", expanded=False):
+            sub_q2 = df_full[(df_full["year"] == q2_year) & (df_full["category"] == selected_category)].copy()
+            if selected_state != "All states":
+                sub_q2 = sub_q2[sub_q2["state"] == selected_state]
+            sub_q2["RPC_minus_TLR"] = (sub_q2["RPC"] - sub_q2["TLR"]).round(2)
+            show_cols = ["name", "state", "rank", "score", "RPC", "TLR", "RPC_minus_TLR"]
+            st.dataframe(sub_q2[show_cols].sort_values("RPC_minus_TLR", ascending=False), use_container_width=True)
+
+    # 3. Score Volatility (Line Chart)
+    elif outlier_selection == OUTLIER_VIEWS[2]:
+        with col_op:
+            q3_top_n = st.slider("Top volatile institutions", 3, 10, 6, key="outlier_q3_topn")
+            inst_options = get_institutions_list(df_full, selected_category)
+            q3_custom_inst = st.multiselect(
+                "Optional: Select specific institutions",
+                options=inst_options,
+                default=[],
+                key="outlier_q3_custom",
+            )
+
+        fig, takeaway = plot_score_volatility_trends(
+            df=df_full,
+            category=selected_category,
+            state=None if selected_state == "All states" else selected_state,
+            top_n=q3_top_n,
+            selected_institutions=q3_custom_inst if q3_custom_inst else None,
+            year_range=year_range,
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.markdown(
+            f"""<div class="takeaway-card">
+            <span class="takeaway-highlight">Takeaway:</span> {takeaway}
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        with st.expander("🔍 View largest YoY score shifts", expanded=False):
+            sub_q3 = df_full[df_full["category"] == selected_category]
+            if selected_state != "All states":
+                sub_q3 = sub_q3[sub_q3["state"] == selected_state]
+            show_cols = ["year", "name", "state", "rank", "score", "score_change_yoy"]
+            st.dataframe(sub_q3[show_cols].dropna(subset=["score_change_yoy"]).sort_values("score_change_yoy", ascending=False), use_container_width=True)
+
+    # 4. High Parameter, Low Rank Anomaly
+    elif outlier_selection == OUTLIER_VIEWS[3]:
+        with col_op:
+            col_p1, col_p2 = st.columns(2)
+            with col_p1:
+                selected_param = st.selectbox(
+                    "Parameter to inspect",
+                    options=["RPC", "TLR", "GO", "OI", "PR"],
+                    index=0,
+                    key="outlier_q4_param",
+                )
+            with col_p2:
+                years_available = sorted(df_full["year"].dropna().unique().tolist())
+                q4_year = st.selectbox(
+                    "Year",
+                    options=years_available,
+                    index=len(years_available) - 1,
+                    key="outlier_q4_year",
+                )
+            q4_top_n = st.slider("Anomaly callouts to label", 3, 10, 6, key="outlier_q4_topn")
+
+        fig, takeaway = plot_high_param_low_rank(
+            df=df_full,
+            year=q4_year,
+            category=selected_category,
+            state=None if selected_state == "All states" else selected_state,
+            param=selected_param,
+            top_n_outliers=q4_top_n,
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.markdown(
+            f"""<div class="takeaway-card">
+            <span class="takeaway-highlight">Takeaway:</span> {takeaway}
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        with st.expander("🔍 View high-parameter anomaly data", expanded=False):
+            sub_q4 = df_full[(df_full["year"] == q4_year) & (df_full["category"] == selected_category)]
+            if selected_state != "All states":
+                sub_q4 = sub_q4[sub_q4["state"] == selected_state]
+            show_cols = ["name", "state", "rank", "score", selected_param, "TLR", "RPC", "PR"]
+            show_cols = [c for c in show_cols if c in df_full.columns]
+            st.dataframe(sub_q4[show_cols].sort_values("rank", ascending=False), use_container_width=True)
+
+    # 5. Ranking Volatility (Dual Options)
+    elif outlier_selection == OUTLIER_VIEWS[4]:
+        with col_op:
+            vol_mode_choice = st.radio(
+                "Volatility Representation",
+                options=["Box Plot (Rank Distribution Spread)", "Line Chart (Trajectory Fluctuations)"],
+                horizontal=False,
+                key="outlier_q5_mode",
+            )
+            q5_top_n = st.slider("Top volatile institutions to display", 4, 15, 8, key="outlier_q5_topn")
+
+        chosen_mode = "boxplot" if "Box Plot" in vol_mode_choice else "line"
+        fig, takeaway = plot_ranking_volatility(
+            df=df_full,
+            category=selected_category,
+            state=None if selected_state == "All states" else selected_state,
+            top_n=q5_top_n,
+            mode=chosen_mode,
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.markdown(
+            f"""<div class="takeaway-card">
+            <span class="takeaway-highlight">Takeaway:</span> {takeaway}
+            </div>""",
+            unsafe_allow_html=True,
+        )
+        with st.expander("🔍 View ranking standard deviation & historical range", expanded=False):
+            sub_q5 = df_full[df_full["category"] == selected_category]
+            if selected_state != "All states":
+                sub_q5 = sub_q5[sub_q5["state"] == selected_state]
+            vol_summary = (
+                sub_q5.groupby(["institution_id", "name", "state"])["rank"]
+                .agg(std_dev="std", best_rank="min", worst_rank="max", years_ranked="count")
+                .reset_index()
+                .sort_values(by="std_dev", ascending=False)
+            )
+            vol_summary["std_dev"] = vol_summary["std_dev"].round(2)
+            st.dataframe(vol_summary, use_container_width=True)
 
 with tabs[8]:
     st.markdown("#### Explore (Level 2)")
