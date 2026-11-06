@@ -1274,7 +1274,7 @@ def _takeaway_card(text: str) -> None:
     )
 
 
-def render_multivariate_tab(df: pd.DataFrame) -> None:
+def render_multivariate_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = None) -> None:
     """
     Main entry point for the Multivariate tab.  Teammates import and call this.
 
@@ -1287,20 +1287,24 @@ def render_multivariate_tab(df: pd.DataFrame) -> None:
 
     Parameters
     ----------
-    df : Full NIRF DataFrame returned by load_nirf_data().
+    df : Full or state-filtered NIRF DataFrame returned by load_nirf_data().
          Expected columns: year, category, name, state, rank_num, score,
                            TLR, RPC, GO, OI, PR  (plus others that are ignored).
+    df_full : Optional complete NIRF DataFrame (for cross-state dropdowns).
     """
     import streamlit as st
 
-    # ?? Build filter option lists ?????????????????????????????????????????
+    if df_full is None:
+        df_full = df
+
+    # Build filter option lists
     all_categories = sorted(df["category"].dropna().unique().tolist())
     if "Overall" in all_categories:
         all_categories.remove("Overall")
         all_categories.insert(0, "Overall")
 
     all_years  = sorted(df["year"].dropna().unique().tolist())
-    all_states = sorted(df["state"].dropna().unique().tolist())
+    all_states = sorted(df_full["state"].dropna().unique().tolist())
 
     # ?? Trends-style two-column header row ???????????????????????????????
     # col_q  : question selector (left, wider)

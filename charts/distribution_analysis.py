@@ -786,7 +786,7 @@ def _warn(note: Optional[str]) -> None:
         st.warning(note)
 
 
-def render_distribution_tab(df: pd.DataFrame) -> None:
+def render_distribution_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = None) -> None:
     """
     Main entry point. Teammates import and call this inside tabs[5].
 
@@ -794,13 +794,17 @@ def render_distribution_tab(df: pd.DataFrame) -> None:
     ---------------
         from charts.distribution_analysis import render_distribution_tab
         with tabs[5]:
-            render_distribution_tab(df_full)
+            render_distribution_tab(df_state, df_full=df_full)
 
     Parameters
     ----------
-    df : Full NIRF DataFrame returned by load_nirf_data().
+    df : Full or state-filtered NIRF DataFrame returned by load_nirf_data().
+    df_full : Complete NIRF DataFrame (for cross-state comparisons).
     """
     import streamlit as st
+
+    if df_full is None:
+        df_full = df
 
     # ── Build filter option lists ─────────────────────────────────────────
     all_categories = sorted(df["category"].dropna().unique().tolist())
@@ -809,7 +813,7 @@ def render_distribution_tab(df: pd.DataFrame) -> None:
         all_categories.insert(0, "Overall")
 
     all_years  = sorted(df["year"].dropna().unique().tolist())
-    all_states = sorted(df["state"].dropna().unique().tolist())
+    all_states = sorted(df_full["state"].dropna().unique().tolist())
 
     # ── Trends-style two-column layout ────────────────────────────────────
     col_q, col_p = st.columns([1.5, 1.2])
@@ -984,7 +988,7 @@ def render_distribution_tab(df: pd.DataFrame) -> None:
             states_pick    = st.multiselect("Or pick specific states", all_states, key="ds_q5_states")
 
         fig, state_df = q6_5_score_by_state(
-            df,
+            df_full,
             year=year,
             category=category,
             selected_states=states_pick if states_pick else None,
