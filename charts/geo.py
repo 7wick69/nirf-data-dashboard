@@ -250,3 +250,4 @@ def plot_state_comparison(
     count2 = len(sub[sub["state"] == state2])
     takeaway = f"{state1} has {count1} institutions vs {count2} in {state2}. Score parity is closest in TLR and GO."
     return fig, takeaway
+

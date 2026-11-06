@@ -8,8 +8,10 @@ Follows textbook data visualization rules (ColorBrewer, Munzner, Tufte):
   - Subtle borders/grid (#262a33)
   - High-discrimination qualitative palette for multi-line nominal categories
   - Redundant encoding support (distinct hues + distinct marker symbols)
+  - Bulletproof layout metrics: Dedicated legend margins to prevent title/legend collisions
 """
 
+from typing import Literal
 import plotly.graph_objects as go
 
 # Base Canvas Palette
@@ -60,56 +62,83 @@ def apply_theme(
     yaxis_title: str = "",
     invert_yaxis: bool = False,
     show_legend: bool = False,
+    legend_position: Literal["right", "bottom"] = "right",
 ) -> go.Figure:
-    """Applies clean, minimal dark styling to any Plotly figure."""
+    """
+    Applies clean, minimal dark styling to any Plotly figure.
+    Guarantees zero overlap between chart title and legend.
+    """
+    if show_legend and legend_position == "right":
+        margin = dict(l=65, r=200, t=65, b=60)
+        legend_layout = dict(
+            orientation="v",
+            yanchor="top",
+            y=1.0,
+            xanchor="left",
+            x=1.02,
+            bgcolor="rgba(22, 24, 30, 0.85)",
+            bordercolor=GRID_COLOR,
+            borderwidth=1,
+            font=dict(color=TEXT_COLOR, size=11),
+            itemwidth=30,
+        )
+    elif show_legend and legend_position == "bottom":
+        margin = dict(l=65, r=40, t=65, b=95)
+        legend_layout = dict(
+            orientation="h",
+            yanchor="top",
+            y=-0.22,
+            xanchor="center",
+            x=0.5,
+            bgcolor="rgba(22, 24, 30, 0.85)",
+            bordercolor=GRID_COLOR,
+            borderwidth=1,
+            font=dict(color=TEXT_COLOR, size=11),
+        )
+    else:
+        margin = dict(l=65, r=40, t=65, b=60)
+        legend_layout = dict(
+            font=dict(color=TEXT_COLOR, size=11),
+        )
+
     fig.update_layout(
-        title={
-            "text": title,
-            "y": 0.95,
-            "x": 0.05,
-            "xanchor": "left",
-            "yanchor": "top",
-            "font": {"size": 15, "color": TEXT_COLOR, "family": "Inter, system-ui, sans-serif"},
-        },
+        title=dict(
+            text=title,
+            y=0.96,
+            x=0.02,
+            xanchor="left",
+            yanchor="top",
+            font=dict(size=15, color=TEXT_COLOR, family="Inter, system-ui, sans-serif"),
+        ),
         paper_bgcolor=DARK_BG,
         plot_bgcolor=PANEL_BG,
-        font={"color": TEXT_COLOR, "family": "Inter, system-ui, sans-serif", "size": 12},
-        margin={"l": 60, "r": 40, "t": 60, "b": 60},
+        font=dict(color=TEXT_COLOR, family="Inter, system-ui, sans-serif", size=12),
+        margin=margin,
         showlegend=show_legend,
-        legend={
-            "bgcolor": "rgba(22, 24, 30, 0.85)",
-            "bordercolor": GRID_COLOR,
-            "borderwidth": 1,
-            "font": {"color": TEXT_COLOR, "size": 11},
-            "orientation": "h",
-            "yanchor": "bottom",
-            "y": 1.02,
-            "xanchor": "right",
-            "x": 1,
-        },
-        hoverlabel={
-            "bgcolor": PANEL_BG,
-            "bordercolor": GRID_COLOR,
-            "font": {"color": TEXT_COLOR, "family": "Inter, monospace", "size": 12},
-        },
+        legend=legend_layout,
+        hoverlabel=dict(
+            bgcolor=PANEL_BG,
+            bordercolor=GRID_COLOR,
+            font=dict(color=TEXT_COLOR, family="Inter, monospace", size=12),
+        ),
     )
 
     fig.update_xaxes(
-        title={"text": xaxis_title, "font": {"size": 12, "color": MUTED_TEXT}},
+        title=dict(text=xaxis_title, font=dict(size=12, color=MUTED_TEXT)),
         gridcolor=GRID_COLOR,
         zerolinecolor=GRID_COLOR,
         showline=True,
         linecolor=GRID_COLOR,
-        tickfont={"size": 11, "color": MUTED_TEXT},
+        tickfont=dict(size=11, color=MUTED_TEXT),
     )
 
     fig.update_yaxes(
-        title={"text": yaxis_title, "font": {"size": 12, "color": MUTED_TEXT}},
+        title=dict(text=yaxis_title, font=dict(size=12, color=MUTED_TEXT)),
         gridcolor=GRID_COLOR,
         zerolinecolor=GRID_COLOR,
         showline=True,
         linecolor=GRID_COLOR,
-        tickfont={"size": 11, "color": MUTED_TEXT},
+        tickfont=dict(size=11, color=MUTED_TEXT),
         autorange="reversed" if invert_yaxis else True,
     )
 

@@ -29,6 +29,25 @@ from charts.theme import (
 )
 
 
+def get_clean_short_name(inst: str) -> str:
+    """Produces clean, standardized short labels for institutions in legends and takeaways."""
+    name = inst.strip()
+    replacements = [
+        ("Indian Institute of Technology", "IIT"),
+        ("National Institute of Technology", "NIT"),
+        ("Indian Institute of Management", "IIM"),
+        ("Indian Institute of Information Technology", "IIIT"),
+        ("Indian Institute of Science", "IISc"),
+        ("All India Institute of Medical Sciences", "AIIMS"),
+        ("University", "Univ"),
+        ("College", "Coll"),
+    ]
+    for old, new in replacements:
+        name = name.replace(old, new)
+    name = name.replace(", ", " ").replace(",", "").strip()
+    return name
+
+
 def plot_institution_rank_trend(
     df: pd.DataFrame,
     institution_name: str,
@@ -423,14 +442,7 @@ def plot_consistently_top10(
         color = QUALITATIVE_PALETTE[idx % len(QUALITATIVE_PALETTE)]
         symbol = MARKER_SYMBOLS[idx % len(MARKER_SYMBOLS)]
 
-        # Clean short display name for legend
-        short_label = (
-            inst.replace("Indian Institute of Technology", "IIT")
-            .replace("National Institute of Technology", "NIT")
-            .replace("Indian Institute of Management", "IIM")
-            .replace("Indian Institute of Science", "IISc")
-            .replace("University", "Univ")
-        )
+        short_label = get_clean_short_name(inst)
 
         fig.add_trace(
             go.Scatter(
@@ -452,6 +464,7 @@ def plot_consistently_top10(
         yaxis_title="NIRF Rank (Inverted: 1 is best)",
         invert_yaxis=True,
         show_legend=True,
+        legend_position="right",
     )
 
     fig.update_xaxes(tickmode="linear", tick0=sub_df["year"].min(), dtick=1)
@@ -464,6 +477,6 @@ def plot_consistently_top10(
         ticks = list(range(min_r, max_r + 1))
         fig.update_yaxes(tickvals=ticks, ticktext=[str(t) for t in ticks])
 
-    names_summary = ", ".join([q.split()[0] + (" " + q.split()[-1] if len(q.split()) > 1 else "") for q in qualifying[:3]])
+    names_summary = ", ".join([get_clean_short_name(q) for q in qualifying[:4]])
     takeaway = f"{len(qualifying)} institutions maintained Top 10 positions for {min_years}+ years ({names_summary}...)."
     return fig, takeaway
