@@ -16,7 +16,8 @@ from core.data import (
 )
 from charts.trends import (
     plot_institution_rank_trend,
-    plot_biggest_improvers_decliners,
+    plot_greatest_improvers,
+    plot_largest_decliners,
     plot_average_score_trend,
     plot_consistently_top10,
 )
@@ -261,60 +262,69 @@ tabs = st.tabs([
 # TAB 1: Trends (P0 Focus)
 # ---------------------------------------------------------
 with tabs[0]:
-    col_q, col_param = st.columns([1.5, 1.2])
+    col_q, col_param = st.columns([1.6, 1.1])
 
     with col_q:
         question = st.selectbox(
             "Question",
             options=[
-                "How has the rank of a selected institution changed over time?",
-                "Who are the biggest improvers and decliners?",
-                "How has the average score changed over time?",
-                "Which institutions are consistently in the top 10?",
+                "How has the overall NIRF ranking of a selected institution changed from 2017 to 2025?",
+                "Which institutions have shown the greatest improvement in rank over the nine years?",
+                "Which institutions have experienced the largest decline in ranking?",
+                "How has the average score of institutions changed over time?",
+                "Which institutions have remained consistently in the top 10 across multiple years?",
             ],
             index=0,
+            key="trends_question_select",
         )
 
     # 1. Institution Rank Over Time
-    if question == "How has the rank of a selected institution changed over time?":
-        inst_options = get_institutions_list(df_full, selected_category)
-        default_inst = "Indian Institute of Technology Madras"
-        default_idx = inst_options.index(default_inst) if default_inst in inst_options else 0
+    if question == "How has the overall NIRF ranking of a selected institution changed from 2017 to 2025?":
+        inst_options = get_institutions_list(df_full, selected_category, selected_state)
 
-        with col_param:
-            selected_inst = st.selectbox(
-                "Institution",
-                options=inst_options,
-                index=default_idx,
+        if not inst_options:
+            st.info(f"No institutions found in {selected_state} for category '{selected_category}'.")
+        else:
+            default_inst = "Indian Institute of Technology Madras"
+            default_idx = inst_options.index(default_inst) if default_inst in inst_options else 0
+
+            with col_param:
+                selected_inst = st.selectbox(
+                    "Institution",
+                    options=inst_options,
+                    index=default_idx,
+                    key="trends_institution_select",
+                )
+
+            fig, takeaway = plot_institution_rank_trend(
+                df=df_full,
+                institution_name=selected_inst,
+                category=selected_category,
+                year_range=year_range,
+                state=selected_state,
             )
 
-        fig, takeaway = plot_institution_rank_trend(
-            df=df_full,
-            institution_name=selected_inst,
-            category=selected_category,
-            year_range=year_range,
-        )
+            st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
 
-        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+            st.markdown(
+                f"""<div class="takeaway-card">
+                <span class="takeaway-highlight">Takeaway line:</span> {takeaway}
+                </div>""",
+                unsafe_allow_html=True,
+            )
 
-        st.markdown(
-            f"""<div class="takeaway-card">
-            <span class="takeaway-highlight">Takeaway line:</span> {takeaway}
-            </div>""",
-            unsafe_allow_html=True,
-        )
-
-    # 2. Biggest Improvers & Decliners
-    elif question == "Who are the biggest improvers and decliners?":
+    # 2. Greatest Improvers
+    elif question == "Which institutions have shown the greatest improvement in rank over the nine years?":
         with col_param:
-            top_n = st.slider("Top N institutions", min_value=3, max_value=10, value=5)
+            top_n = st.slider("Top N improvers", min_value=3, max_value=15, value=5, key="top_improvers_slider")
 
-        fig, takeaway = plot_biggest_improvers_decliners(
+        fig, takeaway = plot_greatest_improvers(
             df=df_full,
             category=selected_category,
             start_year=year_range[0],
             end_year=year_range[1],
             top_n=top_n,
+            state=selected_state,
         )
 
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
@@ -326,12 +336,36 @@ with tabs[0]:
             unsafe_allow_html=True,
         )
 
-    # 3. Average Score Over Time
-    elif question == "How has the average score changed over time?":
+    # 3. Largest Decliners
+    elif question == "Which institutions have experienced the largest decline in ranking?":
+        with col_param:
+            top_n = st.slider("Top N decliners", min_value=3, max_value=15, value=5, key="top_decliners_slider")
+
+        fig, takeaway = plot_largest_decliners(
+            df=df_full,
+            category=selected_category,
+            start_year=year_range[0],
+            end_year=year_range[1],
+            top_n=top_n,
+            state=selected_state,
+        )
+
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+
+        st.markdown(
+            f"""<div class="takeaway-card">
+            <span class="takeaway-highlight">Takeaway line:</span> {takeaway}
+            </div>""",
+            unsafe_allow_html=True,
+        )
+
+    # 4. Average Score Over Time
+    elif question == "How has the average score of institutions changed over time?":
         fig, takeaway = plot_average_score_trend(
             df=df_full,
             category=selected_category,
             year_range=year_range,
+            state=selected_state,
         )
 
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
@@ -343,15 +377,22 @@ with tabs[0]:
             unsafe_allow_html=True,
         )
 
-    # 4. Consistently Top 10
-    elif question == "Which institutions are consistently in the top 10?":
+    # 5. Consistently Top 10
+    elif question == "Which institutions have remained consistently in the top 10 across multiple years?":
         with col_param:
-            min_years = st.slider("Minimum years in Top 10", min_value=2, max_value=max_yr - min_yr + 1, value=5)
+            min_years = st.slider(
+                "Minimum years in Top 10",
+                min_value=2,
+                max_value=max_yr - min_yr + 1,
+                value=min(5, max_yr - min_yr + 1),
+                key="consistently_top10_slider",
+            )
 
         fig, takeaway = plot_consistently_top10(
             df=df_full,
             category=selected_category,
             min_years=min_years,
+            state=selected_state,
         )
 
         st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
@@ -365,14 +406,12 @@ with tabs[0]:
 
     # Details on Demand Expander
     with st.expander("🔍 View underlying data table", expanded=False):
-        if question == "How has the rank of a selected institution changed over time?":
-            inst_df = df_full[
-                (df_full["name"] == selected_inst)
-                & (df_full["category"] == selected_category)
-                & (df_full["year"] >= year_range[0])
-                & (df_full["year"] <= year_range[1])
-            ][["year", "rank", "score", "rank_change", "TLR", "RPC", "GO", "OI", "PR"]]
-            st.dataframe(inst_df.sort_values(by="year"), use_container_width=True)
+        table_df = df_filtered.copy()
+        if question == "How has the overall NIRF ranking of a selected institution changed from 2017 to 2025?" and 'selected_inst' in locals():
+            table_df = table_df[table_df["name"] == selected_inst]
+        
+        display_cols = [c for c in ["year", "name", "state", "rank", "score", "rank_change", "TLR", "RPC", "GO", "OI", "PR"] if c in table_df.columns]
+        st.dataframe(table_df[display_cols].sort_values(by=["year", "rank"] if "rank" in table_df.columns else "year"), use_container_width=True)
 
 
 # ---------------------------------------------------------
