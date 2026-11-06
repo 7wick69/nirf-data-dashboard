@@ -7,7 +7,7 @@ by ONE JSON spec: title + ordered data steps + one chart.
 """
 
 from typing import Any, List, Literal, Optional, Union, Annotated, Dict
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, model_validator, ConfigDict
 
 
 # ---------------------------------------------------------
@@ -61,8 +61,7 @@ class MetricAgg(BaseModel):
     fn: AggFn
     as_: str = Field(alias="as")
 
-    class Config:
-        populate_by_name = True
+    model_config = ConfigDict(populate_by_name=True)
 
 
 class AggregateStep(BaseModel):

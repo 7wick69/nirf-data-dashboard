@@ -33,7 +33,7 @@ ENV/
 htmlcov/
 
 # Logs
-logs/*.log
+logs/
 *.log
 
 # Environment variables
@@ -44,3 +44,4 @@ logs/*.log
 .idea/
 .vscode/
 *.swp
+

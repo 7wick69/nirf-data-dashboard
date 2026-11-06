@@ -86,12 +86,16 @@ nirf-data-dashboard/
    - Plots an institution's historical ranking with an **inverted Y-axis** (Rank 1 at the top).
    - Dynamic hovertooltips displaying Rank, Score, and Year-over-Year movement.
    - **Automated Takeaway:** e.g., *"rank improved from 2 to 1 (+1 places) over 9 years"* for IIT Madras.
-2. **Biggest Improvers & Decliners:**
-   - Horizontal delta comparison identifying the largest climbers and decliners between user-selected years.
-3. **Average & Median Score Trajectory:**
-   - Multi-metric trendline comparing mean and median scores over time.
-4. **Consistently Top-10 Institutions:**
-   - Multi-institution trajectory tracking perennial contenders in the top tier.
+2. **Greatest Rank Improvers:**
+   - Identifies and ranks the top climbing institutions between user-selected years, reactive to state and category filters.
+3. **Largest Rank Decliners:**
+   - Identifies institutions experiencing the steepest ranking drops over the 9-year span.
+4. **Average Score Trajectory:**
+   - Multi-year progression of mean score. When a specific state is selected, automatically overlays the national All-India average as a comparative benchmark.
+5. **Consistently Top-Ranked Institutions (Multi-Line Bump Chart):**
+   - When "All states" is selected, tracks perennial national Top 10 contenders.
+   - When a specific state is chosen, dynamically calculates the **Top 10 institutions within that state** (preventing empty states).
+   - Adheres strictly to textbook visualization rules: ColorBrewer/Okabe-Ito 10-class qualitative palette, redundant marker symbols, and right-aligned legend margin to eliminate title-legend collisions.
 
 ---
 
