@@ -10,7 +10,10 @@ import json
 import os
 from typing import Any
 
-import ollama
+try:
+    import ollama
+except ImportError:
+    ollama = None
 import pandas as pd
 
 from .query_parser import (
@@ -478,22 +481,28 @@ RESPONSE FORMAT:
 8. Avoid repeating information already shown in the chart and takeaway.
 All numerical calculations must come from Python."""
 
-    response = ollama.chat(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {
-                "role": "user",
-                "content": (
-                    f"Original question: {question}\n\n"
-                    f"Verified analytical results:\n{json.dumps(evidence, default=str)}"
-                ),
-            },
-        ],
-        options={"temperature": 0.2},
-        stream=False,
-    )
-    return response.message.content
+    if ollama is None:
+        return f"Based on the analysis of NIRF data for '{question}':\n\n" + "\n".join(f"- {k}: {v}" for k, v in list(evidence.items())[:5] if k != "data")
+
+    try:
+        response = ollama.chat(
+            model=MODEL,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": (
+                        f"Original question: {question}\n\n"
+                        f"Verified analytical results:\n{json.dumps(evidence, default=str)}"
+                    ),
+                },
+            ],
+            options={"temperature": 0.2},
+            stream=False,
+        )
+        return response.message.content
+    except Exception as exc:
+        return f"Analytical results generated. (Note: Local Ollama service is not responding: {exc})"
 
 
 def display_result(result: dict[str, Any]):
