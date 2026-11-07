@@ -243,6 +243,16 @@ def run_acceptance_tests():
             if ok:
                 # Test executing the data grouping/aggregation
                 work = df_full[df_full["category"] == "Overall"].copy()
+                work["__n_rows__"] = 1
+                work["__n_inst__"] = work["name"]
+
+                def _agg_col(df_in, g_col, val_col):
+                    if val_col == "__n_inst__":
+                        return df_in.groupby(g_col, as_index=False)[val_col].nunique()
+                    elif val_col == "__n_rows__":
+                        return df_in.groupby(g_col, as_index=False)[val_col].count()
+                    return df_in.groupby(g_col, as_index=False)[val_col].mean()
+
                 if res_mark == "Scatter":
                     scat = work.dropna(subset=[x_col, y_col])
                     if len(scat) >= 3:
@@ -252,15 +262,15 @@ def run_acceptance_tests():
                 elif res_mark == "Bar":
                     b_work = work.dropna(subset=[x_col, y_col])
                     if not b_work.empty:
-                        ord_s = b_work.groupby(x_col)[y_col].mean().head(10)
+                        ord_s = _agg_col(b_work, x_col, y_col).set_index(x_col).iloc[:, 0].head(10)
                         sub_b = b_work[b_work[x_col].isin(ord_s.index)]
-                        agg_b = sub_b.groupby([x_col], as_index=False)[y_col].mean()
+                        agg_b = _agg_col(sub_b, [x_col], y_col)
                         fig = px.bar(agg_b, x=x_col, y=y_col)
                         assert fig is not None
                 elif res_mark == "Line":
                     l_work = work.dropna(subset=[x_col, y_col])
                     if not l_work.empty:
-                        agg_l = l_work.groupby([x_col], as_index=False)[y_col].mean()
+                        agg_l = _agg_col(l_work, [x_col], y_col)
                         fig = px.line(agg_l, x=x_col, y=y_col)
                         assert fig is not None
                 elif res_mark == "Box Plot":
@@ -276,7 +286,7 @@ def run_acceptance_tests():
                 elif res_mark == "Table":
                     tbl_work = work.dropna(subset=[x_col, y_col])
                     if not tbl_work.empty:
-                        agg_t = tbl_work.groupby([x_col], as_index=False)[y_col].mean()
+                        agg_t = _agg_col(tbl_work, [x_col], y_col)
                         assert not agg_t.empty
 
             combos_tested += 1

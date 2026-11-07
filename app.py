@@ -717,12 +717,18 @@ with tabs[0]:
 
             with col_param:
                 if st_inst_count > 1:
+                    # Guard: if session state holds a tuple (from a range slider in a
+                    # previous session / question), reset it to a plain int so Streamlit
+                    # doesn't render a range slider here.
+                    _stn_key = "state_top_n_slider"
+                    if isinstance(st.session_state.get(_stn_key), tuple):
+                        st.session_state[_stn_key] = min(10, st_inst_count)
                     top_n = st.slider(
                         f"Top institutions in {selected_state}",
                         min_value=1,
                         max_value=min(10, st_inst_count),
                         value=min(10, st_inst_count),
-                        key="state_top_n_slider",
+                        key=_stn_key,
                     )
                 else:
                     top_n = max(1, st_inst_count)
@@ -761,23 +767,30 @@ with tabs[0]:
         )
 
     # Open in Explore Shortcut Button
+    def _open_trends_in_explore():
+        st.session_state["tab_preset_selector"] = "None (Custom Query)"
+        st.session_state["tab_col_type"] = "Dimension"
+        st.session_state["tab_col_dim"] = "Ranking Year"
+        st.session_state["tab_row_meas"] = ["NIRF Rank"]
+        st.session_state["tab_mark_type"] = "Line"
+        st.session_state["tab_agg_func"] = "None (raw rows)"
+        st.session_state["tab_filter_cat"] = selected_category
+        st.session_state["tab_filter_states"] = [selected_state] if selected_state != "All states" else []
+        inst_param = selected_inst if "selected_inst" in locals() else st.session_state.get("trends_institution_select")
+        if question == "How has the overall NIRF ranking of a selected institution changed from 2017 to 2025?" and inst_param:
+            st.session_state["tab_filter_insts"] = [inst_param]
+        else:
+            st.session_state["tab_filter_insts"] = []
+        st.session_state["tab_filter_year"] = year_range
+        st.session_state["tab_color_pill"] = "None"
+        st.session_state["tab_facet_col"] = "None"
+        st.session_state["tab_rank_cutoff"] = 0
+        st.session_state["tab_meas_range_field"] = "None"
+        st.toast("✅ Query loaded into Explore! Click on the 'Explore' tab to modify.", icon="🚀")
+
     c_btn1, c_btn2 = st.columns([1.4, 3])
     with c_btn1:
-        if st.button("🚀 Open this Trends query in Explore", key="open_trends_in_explore"):
-            inst_param = selected_inst if "selected_inst" in locals() else None
-            steps_list = [{"op": "filter", "where": [{"field": "category", "op": "eq", "value": selected_category}]}]
-            if selected_state != "All states":
-                steps_list[0]["where"].append({"field": "state", "op": "eq", "value": selected_state})
-            if inst_param:
-                steps_list.append({"op": "filter", "where": [{"field": "name", "op": "eq", "value": inst_param}]})
-            steps_list.append({"op": "top", "n": 25})
-            st.session_state["explore_spec"] = {
-                "title": f"Explore: {question}",
-                "takeaway": "Loaded from Trends tab",
-                "steps": steps_list,
-                "chart": {"type": "line", "x": "year", "y": "rank", "invert_yaxis": True},
-            }
-            st.toast("✅ Query loaded into Explore! Click on the 'Explore' tab to modify.", icon="🚀")
+        st.button("🚀 Open this Trends query in Explore", key="open_trends_in_explore", on_click=_open_trends_in_explore)
 
     # Details on Demand Expander
     with st.expander("🔍 View underlying data table", expanded=False):
