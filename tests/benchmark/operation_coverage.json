@@ -1,0 +1,233 @@
+{
+  "source": "Official Annexure A catalogue supplied by the project owner, audited against the current NIRFAnalyticsEngine dispatch and methods.",
+  "scope": "Static implementation audit updated after Level 1 Phase 5. This does not claim all 40 questions have passed end-to-end query parsing, Streamlit rendering and explanation testing.",
+  "status_definitions": {
+    "implemented": "The existing generic analytics method can directly perform the named operation when the query is populated with the required filters/slots.",
+    "partial": "A related generic method exists, but it does not fully perform the requested derived analysis or output selection.",
+    "not_implemented": "No current method in the analytics engine performs this operation as specified."
+  },
+  "operations": {
+    "institution_rank_history": {
+      "status": "implemented",
+      "engine_intent": "trend_analysis",
+      "method": "trend",
+      "note": "Supports year-wise rank observations when an institution filter and endpoint years are supplied."
+    },
+    "rank_improvement": {
+      "status": "implemented",
+      "engine_intent": "trend_analysis",
+      "method": "trend",
+      "note": "Computes start-rank minus end-rank for matched institutions; positive values indicate improvement."
+    },
+    "rank_decline": {
+      "status": "implemented",
+      "engine_intent": "rank_movement",
+      "method": "rank_decline",
+      "note": "Matches valid ranked institutions by institute_key at the endpoint years, isolates only institutions whose rank number worsened, and sorts by decline magnitude."
+    },
+    "mean_score_by_year": {
+      "status": "implemented",
+      "engine_intent": "trend_analysis",
+      "method": "mean_score_by_year",
+      "note": "Computes annual mean and median metric values with the valid observation count; missing values are excluded without imputation."
+    },
+    "top10_consistency": {
+      "status": "implemented",
+      "engine_intent": "trend_analysis",
+      "method": "top10_consistency",
+      "note": "Builds year-by-institution top-10 membership and selects recurrent institutions using an explicit default threshold of 60% of observed ranked years."
+    },
+    "top_n_count_by_state": {
+      "status": "implemented",
+      "engine_intent": "geographical_analysis",
+      "method": "geographical",
+      "note": "Supports distinct institution counts by state with a rank_limit such as 100."
+    },
+    "state_distribution_by_year": {
+      "status": "implemented",
+      "engine_intent": "geographical_analysis",
+      "method": "state_distribution_by_year",
+      "note": "Builds a state-by-year distinct-institution count matrix for the selected top-N rank band; ties at the rank cutoff are retained."
+    },
+    "state_representation_change": {
+      "status": "implemented",
+      "engine_intent": "geographical_analysis",
+      "method": "state_representation_change",
+      "note": "Compares endpoint state counts and percentage-point share change in the selected top-N rank band."
+    },
+    "compare_state_rank_distributions": {
+      "status": "implemented",
+      "engine_intent": "comparison",
+      "method": "compare_state_rank_distributions",
+      "note": "Returns institution-level numerical ranks for exactly two selected states with state-wise median, quartiles, IQR, range and counts; supports a box plot."
+    },
+    "new_entries_by_state": {
+      "status": "implemented",
+      "engine_intent": "geographical_analysis",
+      "method": "new_entries_by_state",
+      "note": "Finds end-year ranked institute_key values absent from the start-year ranked set and aggregates entrants by their end-year state."
+    },
+    "score_distribution": {
+      "status": "implemented",
+      "engine_intent": "distribution_analysis",
+      "method": "distribution",
+      "note": "Builds score histograms and descriptive distribution statistics for a selected category/year."
+    },
+    "rank_distribution": {
+      "status": "implemented",
+      "engine_intent": "distribution_analysis",
+      "method": "rank_distribution",
+      "note": "Dedicated aggregation by the published rank_band values, counting distinct institute_key values per band."
+    },
+    "score_summary": {
+      "status": "implemented",
+      "engine_intent": "statistical_summary",
+      "method": "statistical_summary",
+      "note": "Calculates count, mean, median, minimum, maximum, standard deviation, quartiles and IQR."
+    },
+    "score_quartile_share": {
+      "status": "implemented",
+      "engine_intent": "distribution_analysis",
+      "method": "score_quartile_share",
+      "note": "Uses empirical quartiles over valid ranked institution metric scores and returns distinct-institution counts and percentages; tied values may yield fewer than four intervals."
+    },
+    "score_spread_by_category": {
+      "status": "implemented",
+      "engine_intent": "distribution_analysis",
+      "method": "score_spread_by_category",
+      "note": "Compares raw institution-level metric observations across all selected categories in the specified year; missing values remain missing."
+    },
+    "metric_correlation": {
+      "status": "implemented",
+      "engine_intent": "correlation_analysis",
+      "method": "correlation",
+      "note": "Calculates Pearson and Spearman correlation on pairwise-complete records for two selected metrics."
+    },
+    "parameter_correlation_ranking": {
+      "status": "implemented",
+      "engine_intent": "correlation_analysis",
+      "method": "parameter_correlation_ranking",
+      "note": "Calculates pairwise Pearson and Spearman correlations between every available published parameter and overall score; ranks by absolute Pearson coefficient."
+    },
+    "correlation_over_time": {
+      "status": "implemented",
+      "engine_intent": "correlation_analysis",
+      "method": "correlation_over_time",
+      "note": "Calculates annual Pearson and Spearman correlations between RPC and overall score, omitting years without at least three complete varying pairs."
+    },
+    "top_institution_parameter_profile": {
+      "status": "implemented",
+      "engine_intent": "multivariate_analysis",
+      "method": "multivariate",
+      "note": "Returns top-ranked institutions and available NIRF parameter columns for profile comparison."
+    },
+    "high_low_metric_quadrant": {
+      "status": "implemented",
+      "engine_intent": "multivariate_analysis",
+      "method": "high_low_metric_quadrant",
+      "note": "Uses category/year medians to identify the high-x/low-y quadrant; returns qualifying institutions and retains all complete records for the scatter context."
+    },
+    "overall_vs_parameter_change": {
+      "status": "implemented",
+      "engine_intent": "multivariate_analysis",
+      "method": "overall_vs_parameter_change",
+      "note": "Matches institutions by institute_key across endpoint years and finds those with increasing overall score plus at least one paired parameter decline."
+    },
+    "parameter_gap": {
+      "status": "implemented",
+      "engine_intent": "multivariate_analysis",
+      "method": "parameter_gap",
+      "note": "Ranks institutions by maximum minus minimum among their available published NIRF parameter scores."
+    },
+    "top10_vs_rest_distribution": {
+      "status": "implemented",
+      "engine_intent": "distribution_analysis",
+      "method": "top10_vs_rest_distribution",
+      "note": "Creates top-10 and remaining-institution groups using rank_num <= 10, preserving ties, and returns raw metric observations for box plots."
+    },
+    "score_dispersion_by_year": {
+      "status": "implemented",
+      "engine_intent": "distribution_analysis",
+      "method": "score_dispersion_by_year",
+      "note": "Compares year-wise institution-level metric distributions across the selected period using count, mean, median, standard deviation, quartiles and IQR."
+    },
+    "parameter_variability": {
+      "status": "implemented",
+      "engine_intent": "statistical_summary",
+      "method": "parameter_variability",
+      "note": "Compares sample standard deviation across parameter columns that contain at least two observed values for the selected category/year."
+    },
+    "median_iqr_over_time": {
+      "status": "implemented",
+      "engine_intent": "distribution_analysis",
+      "method": "median_iqr_over_time",
+      "note": "Returns annual median, Q1 and Q3 values with observation counts; the renderer displays the median line and IQR band without smoothing or interpolation."
+    },
+    "score_distribution_by_state": {
+      "status": "implemented",
+      "engine_intent": "distribution_analysis",
+      "method": "score_distribution_by_state",
+      "note": "Returns institution-level metric observations grouped by state and state-level descriptive summaries; chart may select a subset of states for readability while result data retains all observations."
+    },
+    "rank_band_transition_count": {
+      "status": "implemented",
+      "engine_intent": "transition_analysis",
+      "method": "rank_band_transition_count",
+      "note": "Counts and lists institutions moving from numeric ranks 51–100 at the start year to rank <=50 at the end year; chart displays all matched rank-band flows."
+    },
+    "top10_entries_exits": {
+      "status": "implemented",
+      "engine_intent": "transition_analysis",
+      "method": "top10_entries_exits",
+      "note": "Uses top-10 institute_key membership set differences for adjacent calendar years and labels missing next-year ranked records explicitly."
+    },
+    "same_band_percentage": {
+      "status": "implemented",
+      "engine_intent": "transition_analysis",
+      "method": "same_band_percentage",
+      "note": "Computes overall same-rank-band retention and row-normalized start-band to end-band transition percentages using numeric rank bands."
+    },
+    "rank_movement_extremes": {
+      "status": "implemented",
+      "engine_intent": "rank_movement",
+      "method": "rank_movement_extremes",
+      "note": "Returns dedicated top upward and downward endpoint rank movers; positive change means numerical rank improved."
+    },
+    "movement_counts_by_year": {
+      "status": "implemented",
+      "engine_intent": "transition_analysis",
+      "method": "movement_counts_by_year",
+      "note": "Counts up/down/unchanged rank movements across adjacent calendar years, using only institutions with valid ranks in both years."
+    },
+    "research_score_residual_outliers": {
+      "status": "implemented",
+      "engine_intent": "outlier_analysis",
+      "method": "research_score_residual_outliers",
+      "note": "Regresses RPC on overall score and identifies unusually positive RPC residuals using an upper 1.5×IQR fence."
+    },
+    "metric_difference_outliers": {
+      "status": "implemented",
+      "engine_intent": "outlier_analysis",
+      "method": "metric_difference_outliers",
+      "note": "Calculates pairwise-complete RPC−TLR differences and flags unusually positive gaps using an upper 1.5×IQR fence."
+    },
+    "score_change_outliers": {
+      "status": "implemented",
+      "engine_intent": "outlier_analysis",
+      "method": "score_change_outliers",
+      "note": "Matches institute_key across adjacent calendar years and detects both upper and lower IQR outliers in annual score change."
+    },
+    "metric_rank_outliers": {
+      "status": "implemented",
+      "engine_intent": "outlier_analysis",
+      "method": "metric_rank_outliers",
+      "note": "Models rank number from a selected metric or each institution's strongest available parameter, then flags unusually poor positive rank residuals."
+    },
+    "rank_volatility_outliers": {
+      "status": "implemented",
+      "engine_intent": "outlier_analysis",
+      "method": "rank_volatility_outliers",
+      "note": "Measures mean absolute rank movement across adjacent years and flags institutions beyond the peer-cohort upper 1.5×IQR fence."
+    }
+  }
+}
