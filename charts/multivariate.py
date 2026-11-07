@@ -1274,7 +1274,11 @@ def _takeaway_card(text: str) -> None:
     )
 
 
-def render_multivariate_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = None) -> None:
+def render_multivariate_tab(
+    df: pd.DataFrame,
+    df_full: Optional[pd.DataFrame] = None,
+    category: Optional[str] = None,
+) -> None:
     """
     Main entry point for the Multivariate tab.  Teammates import and call this.
 
@@ -1283,7 +1287,7 @@ def render_multivariate_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = 
         from charts.multivariate import render_multivariate_tab
 
         with tabs[4]:           # the existing "Multivariate" placeholder tab
-            render_multivariate_tab(df_full)
+            render_multivariate_tab(df_state, df_full=df_full, category=selected_category)
 
     Parameters
     ----------
@@ -1291,20 +1295,20 @@ def render_multivariate_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = 
          Expected columns: year, category, name, state, rank_num, score,
                            TLR, RPC, GO, OI, PR  (plus others that are ignored).
     df_full : Optional complete NIRF DataFrame (for cross-state dropdowns).
+    category : Category string selected in sidebar.
     """
     import streamlit as st
 
     if df_full is None:
         df_full = df
 
-    # Build filter option lists
-    all_categories = sorted(df["category"].dropna().unique().tolist())
-    if "Overall" in all_categories:
-        all_categories.remove("Overall")
-        all_categories.insert(0, "Overall")
-
-    all_years  = sorted(df["year"].dropna().unique().tolist())
+    all_years = sorted(df["year"].dropna().unique().tolist())
+    if not all_years:
+        all_years = sorted(df_full["year"].dropna().unique().tolist())
     all_states = sorted(df_full["state"].dropna().unique().tolist())
+
+    if not category:
+        category = "Overall"
 
     # ?? Trends-style two-column header row ???????????????????????????????
     # col_q  : question selector (left, wider)
@@ -1327,9 +1331,8 @@ def render_multivariate_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = 
     # ================================================================
     if question == QUESTIONS[0]:
         with col_p:
-            year     = st.selectbox("Year", all_years, index=len(all_years) - 1, key="mv_q1_year")
-            category = st.selectbox("Category", all_categories, key="mv_q1_cat")
-            view     = st.radio("Chart type", ["Radar", "Grouped Bar"], horizontal=True, key="mv_q1_view")
+            year = st.selectbox("Year", all_years, index=len(all_years) - 1, key="mv_q1_year")
+            view = st.radio("Chart type", ["Radar", "Grouped Bar"], horizontal=True, key="mv_q1_view")
 
         fig, top5_df = q5_1_top5_radar(
             df, year=year, category=category, show_bar=(view == "Grouped Bar"),
@@ -1355,13 +1358,12 @@ def render_multivariate_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = 
     # Q 5.2 -- RPC vs TLR scatter
     # ================================================================
     elif question == QUESTIONS[1]:
-        sub_tmp     = mv_filter(df, year=all_years[-1], category=all_categories[0])
+        sub_tmp     = mv_filter(df, year=all_years[-1], category=category)
         default_rpc = float(sub_tmp["RPC"].median()) if "RPC" in sub_tmp.columns and sub_tmp["RPC"].notna().any() else 50.0
         default_tlr = float(sub_tmp["TLR"].median()) if "TLR" in sub_tmp.columns and sub_tmp["TLR"].notna().any() else 50.0
 
         with col_p:
             year       = st.selectbox("Year", all_years, index=len(all_years) - 1, key="mv_q2_year")
-            category   = st.selectbox("Category", all_categories, key="mv_q2_cat")
             rpc_thresh = st.slider("RPC threshold", 0.0, 100.0, default_rpc, 0.5, key="mv_q2_rpc")
             tlr_thresh = st.slider("TLR threshold", 0.0, 100.0, default_tlr, 0.5, key="mv_q2_tlr")
 
@@ -1393,13 +1395,12 @@ def render_multivariate_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = 
     # Q 5.3 -- TLR vs PR scatter
     # ================================================================
     elif question == QUESTIONS[2]:
-        sub_tmp     = mv_filter(df, year=all_years[-1], category=all_categories[0])
+        sub_tmp     = mv_filter(df, year=all_years[-1], category=category)
         default_tlr = float(sub_tmp["TLR"].median()) if "TLR" in sub_tmp.columns and sub_tmp["TLR"].notna().any() else 50.0
         default_pr  = float(sub_tmp["PR"].median())  if "PR"  in sub_tmp.columns and sub_tmp["PR"].notna().any()  else 50.0
 
         with col_p:
             year       = st.selectbox("Year", all_years, index=len(all_years) - 1, key="mv_q3_year")
-            category   = st.selectbox("Category", all_categories, key="mv_q3_cat")
             tlr_thresh = st.slider("TLR threshold", 0.0, 100.0, default_tlr, 0.5, key="mv_q3_tlr")
             pr_thresh  = st.slider("PR threshold",  0.0, 100.0, default_pr,  0.5, key="mv_q3_pr")
 
@@ -1432,7 +1433,6 @@ def render_multivariate_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = 
     # ================================================================
     elif question == QUESTIONS[3]:
         with col_p:
-            category = st.selectbox("Category", all_categories, key="mv_q4_cat")
             year1    = st.selectbox("From Year", all_years, index=0, key="mv_q4_y1")
             valid_y2 = [y for y in all_years if y > year1]
             year2    = st.selectbox(
@@ -1483,7 +1483,6 @@ def render_multivariate_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = 
     elif question == QUESTIONS[4]:
         with col_p:
             year          = st.selectbox("Year", all_years, index=len(all_years) - 1, key="mv_q5_year")
-            category      = st.selectbox("Category", all_categories, key="mv_q5_cat")
             top_n         = st.slider("Top N institutions", 5, 30, 15, key="mv_q5_n")
             states_filter = st.multiselect("Filter by State (optional)", all_states, key="mv_q5_states")
 

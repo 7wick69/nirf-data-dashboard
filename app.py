@@ -877,13 +877,13 @@ with tabs[3]:  # "Bivariate"
 # TAB 5: Multivariate Analysis (Annexure A §5)
 # ---------------------------------------------------------
 with tabs[4]:
-    render_multivariate_tab(df_state, df_full=df_full)
+    render_multivariate_tab(df_state, df_full=df_full, category=selected_category)
 
 # ---------------------------------------------------------
 # TAB 6: Distribution Analysis (Annexure A §6)
 # ---------------------------------------------------------
 with tabs[5]:
-    render_distribution_tab(df_state, df_full=df_full)
+    render_distribution_tab(df_state, df_full=df_full, category=selected_category)
 
 # ---------------------------------------------------------
 # TAB 7: Transitions Visualizations (Annexure A §7)

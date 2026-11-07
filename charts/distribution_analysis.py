@@ -786,7 +786,11 @@ def _warn(note: Optional[str]) -> None:
         st.warning(note)
 
 
-def render_distribution_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = None) -> None:
+def render_distribution_tab(
+    df: pd.DataFrame,
+    df_full: Optional[pd.DataFrame] = None,
+    category: Optional[str] = None,
+) -> None:
     """
     Main entry point. Teammates import and call this inside tabs[5].
 
@@ -794,26 +798,26 @@ def render_distribution_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = 
     ---------------
         from charts.distribution_analysis import render_distribution_tab
         with tabs[5]:
-            render_distribution_tab(df_state, df_full=df_full)
+            render_distribution_tab(df_state, df_full=df_full, category=selected_category)
 
     Parameters
     ----------
     df : Full or state-filtered NIRF DataFrame returned by load_nirf_data().
     df_full : Complete NIRF DataFrame (for cross-state comparisons).
+    category : Category string selected in sidebar.
     """
     import streamlit as st
 
     if df_full is None:
         df_full = df
 
-    # ── Build filter option lists ─────────────────────────────────────────
-    all_categories = sorted(df["category"].dropna().unique().tolist())
-    if "Overall" in all_categories:
-        all_categories.remove("Overall")
-        all_categories.insert(0, "Overall")
-
-    all_years  = sorted(df["year"].dropna().unique().tolist())
+    all_years = sorted(df["year"].dropna().unique().tolist())
+    if not all_years:
+        all_years = sorted(df_full["year"].dropna().unique().tolist())
     all_states = sorted(df_full["state"].dropna().unique().tolist())
+
+    if not category:
+        category = "Overall"
 
     # ── Trends-style two-column layout ────────────────────────────────────
     col_q, col_p = st.columns([1.5, 1.2])
@@ -834,8 +838,7 @@ def render_distribution_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = 
     # ================================================================
     if question == QUESTIONS[0]:
         with col_p:
-            year      = st.selectbox("Year", all_years, index=len(all_years)-1, key="ds_q1_year")
-            category  = st.selectbox("Category", all_categories, key="ds_q1_cat")
+            year       = st.selectbox("Year", all_years, index=len(all_years)-1, key="ds_q1_year")
             chart_type = st.radio("Chart type", ["Violin", "Box", "Histogram"],
                                    horizontal=True, key="ds_q1_chart")
 
@@ -872,7 +875,6 @@ def render_distribution_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = 
     # ================================================================
     elif question == QUESTIONS[1]:
         with col_p:
-            category       = st.selectbox("Category", all_categories, key="ds_q2_cat")
             selected_years = st.multiselect("Years to compare", all_years,
                                             default=all_years, key="ds_q2_years")
 
@@ -908,8 +910,7 @@ def render_distribution_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = 
     # ================================================================
     elif question == QUESTIONS[2]:
         with col_p:
-            year     = st.selectbox("Year", all_years, index=len(all_years)-1, key="ds_q3_year")
-            category = st.selectbox("Category", all_categories, key="ds_q3_cat")
+            year = st.selectbox("Year", all_years, index=len(all_years)-1, key="ds_q3_year")
 
         fig, var_df = q6_3_parameter_variability(df, year=year, category=category)
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
@@ -938,7 +939,6 @@ def render_distribution_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = 
     # ================================================================
     elif question == QUESTIONS[3]:
         with col_p:
-            category      = st.selectbox("Category", all_categories, key="ds_q4_cat")
             states_filter = st.multiselect("Filter by State (optional)",
                                            all_states, key="ds_q4_states")
             years_filter  = st.multiselect("Filter Years (optional, default = all)",
@@ -980,7 +980,6 @@ def render_distribution_tab(df: pd.DataFrame, df_full: Optional[pd.DataFrame] = 
     elif question == QUESTIONS[4]:
         with col_p:
             year           = st.selectbox("Year", all_years, index=len(all_years)-1, key="ds_q5_year")
-            category       = st.selectbox("Category", all_categories, key="ds_q5_cat")
             chart_type5    = st.radio("Chart type", ["Violin", "Box"],
                                       horizontal=True, key="ds_q5_chart")
             top_n          = st.slider("Top N states (by institution count)", 3, 20, 10, key="ds_q5_topn")
