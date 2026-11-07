@@ -309,6 +309,9 @@ with tabs[0]:
             default_inst = "Indian Institute of Technology Madras"
             default_idx = inst_options.index(default_inst) if default_inst in inst_options else 0
 
+            if "trends_institution_select" in st.session_state and st.session_state["trends_institution_select"] not in inst_options:
+                st.session_state["trends_institution_select"] = inst_options[default_idx]
+
             with col_param:
                 selected_inst = st.selectbox(
                     "Institution",
