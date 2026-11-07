@@ -93,5 +93,39 @@ def test_trends_plots():
     print("All 5 trend chart tests passed with state filtering and textbook visual encoding!")
 
 
+def test_trends_nan_handling_and_innovation():
+    df = load_nirf_data()
+
+    # 1. Test Innovation category where some ranks are NaN (e.g. 2023 unranked)
+    inno_insts = get_institutions_list(df, "Innovation")
+    assert len(inno_insts) > 0
+
+    # Test with IIT Madras which has 2023 rank as NaN
+    fig1, takeaway1 = plot_institution_rank_trend(df, "Indian Institute of Technology Madras", "Innovation")
+    assert fig1 is not None
+    assert "rank improved" in takeaway1 or "rank" in takeaway1
+
+    # Test with institution that has ONLY unranked (NaN) rows in Innovation
+    fig1_unranked, takeaway1_unranked = plot_institution_rank_trend(
+        df, "National Institute of Technology Calicut", "Innovation"
+    )
+    assert fig1_unranked is not None
+    assert "No numerical ranking records found" in takeaway1_unranked
+
+    # 2. Test Q2, Q3, Q4, Q5 with Innovation (no score published)
+    fig2, takeaway2 = plot_greatest_improvers(df, "Innovation", 2023, 2025)
+    assert fig2 is not None
+
+    fig3, takeaway3 = plot_largest_decliners(df, "Innovation", 2023, 2025)
+    assert fig3 is not None
+
+    fig4, takeaway4 = plot_average_score_trend(df, "Innovation")
+    assert fig4 is not None
+    assert "No numerical score records available" in takeaway4 or "No score data" in takeaway4
+
+    fig5, takeaway5 = plot_consistently_top10(df, "Innovation")
+    assert fig5 is not None
+
+
 if __name__ == "__main__":
     test_trends_plots()

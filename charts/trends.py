@@ -59,7 +59,7 @@ def plot_institution_rank_trend(
     Question 1: How has the overall NIRF ranking of a selected institution changed from 2017 to 2025?
     Plots the rank trajectory with an inverted Y-axis so Rank 1 is at the top.
     """
-    filtered = df[(df["name"] == institution_name) & (df["category"] == category) & df["rank"].notna()].copy()
+    filtered = df[(df["name"] == institution_name) & (df["category"] == category)].copy()
 
     if state and state != "All states":
         filtered = filtered[filtered["state"] == state]
@@ -67,17 +67,23 @@ def plot_institution_rank_trend(
     if year_range:
         filtered = filtered[(filtered["year"] >= year_range[0]) & (filtered["year"] <= year_range[1])]
 
+    # Safely convert rank and year to numeric and drop NaN/non-finite records
+    filtered["rank"] = pd.to_numeric(filtered["rank"], errors="coerce")
+    filtered["year"] = pd.to_numeric(filtered["year"], errors="coerce")
+    filtered = filtered.dropna(subset=["rank", "year"])
     filtered = filtered.sort_values(by="year")
 
     if filtered.empty:
         fig = go.Figure()
         fig = apply_theme(fig, title=f"No data for {institution_name} in {category}")
-        return fig, f"No ranking records found for '{institution_name}' in category '{category}'" + (f" for state {state}." if state and state != "All states" else ".")
+        return fig, f"No numerical ranking records found for '{institution_name}' in category '{category}'" + (f" for state {state}." if state and state != "All states" else ".")
 
     first_row = filtered.iloc[0]
     last_row = filtered.iloc[-1]
-    first_year, first_rank = int(first_row["year"]), int(first_row["rank"])
-    last_year, last_rank = int(last_row["year"]), int(last_row["rank"])
+    first_year = int(first_row["year"])
+    first_rank = int(round(float(first_row["rank"])))
+    last_year = int(last_row["year"])
+    last_rank = int(round(float(last_row["rank"])))
     years_span = last_year - first_year + 1
 
     # Automated takeaway calculation
@@ -107,7 +113,7 @@ def plot_institution_rank_trend(
             ),
             customdata=list(
                 zip(
-                    filtered["score"].fillna(0),
+                    pd.to_numeric(filtered["score"], errors="coerce").fillna(0),
                     filtered["rank_change"].apply(
                         lambda c: f"+{int(c)}" if pd.notna(c) and c > 0 else (str(int(c)) if pd.notna(c) else "N/A")
                     ),
@@ -116,8 +122,8 @@ def plot_institution_rank_trend(
         )
     )
 
-    min_rank = int(filtered["rank"].min())
-    max_rank = int(filtered["rank"].max())
+    min_rank = int(round(float(filtered["rank"].min())))
+    max_rank = int(round(float(filtered["rank"].max())))
     y_min_bound = max(1, min_rank - 1)
     y_max_bound = max_rank + 1
     tick_vals = list(range(y_min_bound, y_max_bound + 1))
@@ -154,17 +160,20 @@ def plot_greatest_improvers(
     if state and state != "All states":
         df_cat = df_cat[df_cat["state"] == state]
 
-    df_start = df_cat[df_cat["year"] == start_year][["name", "rank", "state"]].rename(columns={"rank": "start_rank"})
-    df_end = df_cat[df_cat["year"] == end_year][["name", "rank"]].rename(columns={"rank": "end_rank"})
+    df_cat["rank"] = pd.to_numeric(df_cat["rank"], errors="coerce")
+    df_valid = df_cat.dropna(subset=["rank"])
+
+    df_start = df_valid[df_valid["year"] == start_year][["name", "rank", "state"]].rename(columns={"rank": "start_rank"})
+    df_end = df_valid[df_valid["year"] == end_year][["name", "rank"]].rename(columns={"rank": "end_rank"})
 
     merged = df_start.merge(df_end, on="name", how="inner")
     if merged.empty:
         fig = go.Figure()
         scope_msg = f" for state '{state}'" if state and state != "All states" else ""
-        return apply_theme(fig, title=f"Insufficient comparative data between {start_year} and {end_year}"), f"No institutions found with rankings in both {start_year} and {end_year}{scope_msg}."
+        return apply_theme(fig, title=f"Insufficient comparative data between {start_year} and {end_year}"), f"No institutions found with valid numerical rankings in both {start_year} and {end_year}{scope_msg}."
 
     # rank_delta = start_rank - end_rank (positive = improved, climbed higher)
-    merged["rank_delta"] = (merged["start_rank"] - merged["end_rank"]).astype(int)
+    merged["rank_delta"] = (merged["start_rank"] - merged["end_rank"]).round().astype(int)
     improvers = merged[merged["rank_delta"] > 0].sort_values(by="rank_delta", ascending=False).head(top_n)
 
     if improvers.empty:
@@ -225,17 +234,20 @@ def plot_largest_decliners(
     if state and state != "All states":
         df_cat = df_cat[df_cat["state"] == state]
 
-    df_start = df_cat[df_cat["year"] == start_year][["name", "rank", "state"]].rename(columns={"rank": "start_rank"})
-    df_end = df_cat[df_cat["year"] == end_year][["name", "rank"]].rename(columns={"rank": "end_rank"})
+    df_cat["rank"] = pd.to_numeric(df_cat["rank"], errors="coerce")
+    df_valid = df_cat.dropna(subset=["rank"])
+
+    df_start = df_valid[df_valid["year"] == start_year][["name", "rank", "state"]].rename(columns={"rank": "start_rank"})
+    df_end = df_valid[df_valid["year"] == end_year][["name", "rank"]].rename(columns={"rank": "end_rank"})
 
     merged = df_start.merge(df_end, on="name", how="inner")
     if merged.empty:
         fig = go.Figure()
         scope_msg = f" for state '{state}'" if state and state != "All states" else ""
-        return apply_theme(fig, title=f"Insufficient comparative data between {start_year} and {end_year}"), f"No institutions found with rankings in both {start_year} and {end_year}{scope_msg}."
+        return apply_theme(fig, title=f"Insufficient comparative data between {start_year} and {end_year}"), f"No institutions found with valid numerical rankings in both {start_year} and {end_year}{scope_msg}."
 
     # rank_delta = start_rank - end_rank (negative = declined)
-    merged["rank_delta"] = (merged["start_rank"] - merged["end_rank"]).astype(int)
+    merged["rank_delta"] = (merged["start_rank"] - merged["end_rank"]).round().astype(int)
     decliners = merged[merged["rank_delta"] < 0].sort_values(by="rank_delta", ascending=True).head(top_n)
 
     if decliners.empty:
@@ -275,7 +287,7 @@ def plot_largest_decliners(
 
     steepest = decliners.iloc[0]
     takeaway = (
-        f"Largest decline: {steepest['name']} dropped {int(steepest['rank_delta'])} ranks "
+        f"Largest decline: {steepest['name']} dropped {abs(int(steepest['rank_delta']))} ranks "
         f"(#{int(steepest['start_rank'])} in {start_year} → #{int(steepest['end_rank'])} in {end_year})."
     )
     return fig, takeaway
@@ -295,9 +307,12 @@ def plot_average_score_trend(
     if year_range:
         cat_df = cat_df[(cat_df["year"] >= year_range[0]) & (cat_df["year"] <= year_range[1])]
 
+    cat_df["score"] = pd.to_numeric(cat_df["score"], errors="coerce")
+    cat_df = cat_df.dropna(subset=["score"])
+
     if cat_df.empty:
         fig = go.Figure()
-        return apply_theme(fig, title=f"No data for {category}"), "No score records available."
+        return apply_theme(fig, title=f"No score data available for {category}"), f"No numerical score records available for category '{category}'."
 
     # Overall benchmark
     national_agg = cat_df.groupby("year")["score"].agg(["mean", "median"]).reset_index()
@@ -306,6 +321,7 @@ def plot_average_score_trend(
 
     if state and state != "All states":
         state_df = cat_df[cat_df["state"] == state]
+        state_agg = pd.DataFrame()
         if not state_df.empty:
             state_agg = state_df.groupby("year")["score"].agg(["mean", "median"]).reset_index()
             fig.add_trace(
@@ -340,8 +356,8 @@ def plot_average_score_trend(
             )
         )
         scope_title = f"{state} vs All-India ({category})"
-        first_val = state_agg["mean"].iloc[0] if not state_df.empty else 0
-        last_val = state_agg["mean"].iloc[-1] if not state_df.empty else 0
+        first_val = state_agg["mean"].iloc[0] if (not state_df.empty and len(state_agg) > 0) else 0
+        last_val = state_agg["mean"].iloc[-1] if (not state_df.empty and len(state_agg) > 0) else 0
         delta = last_val - first_val
         takeaway = (
             f"Average score for {state} {'increased' if delta >= 0 else 'decreased'} by {abs(delta):.2f} pts "
@@ -462,7 +478,7 @@ def plot_consistently_top10(
         )
         fig.update_xaxes(tickmode="linear", tick0=sub_df["year"].min(), dtick=1)
 
-        all_ranks = sub_df["rank"].dropna().astype(int)
+        all_ranks = pd.to_numeric(sub_df["rank"], errors="coerce").dropna().round().astype(int)
         if not all_ranks.empty:
             min_r = max(1, all_ranks.min() - 1)
             max_r = min(200, all_ranks.max() + 2)
@@ -479,6 +495,8 @@ def plot_consistently_top10(
     # 2. National (All-India) Consistently Top 10 Selection
     # -------------------------------------------------------------
     cat_df = df[df["category"] == category].copy()
+    cat_df["rank"] = pd.to_numeric(cat_df["rank"], errors="coerce")
+    cat_df = cat_df.dropna(subset=["rank"])
 
     # Identify institutions ranked <= 10 nationally
     top10_insts = (
