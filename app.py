@@ -33,6 +33,14 @@ from charts.geo import (
     plot_new_entrant_states,
 )
 from charts.explore import render_explore_tab
+from charts.univariate import (
+    plot_score_distribution,
+    plot_rank_distribution,
+    plot_summary_statistics,
+    plot_rank_band_breakdown,
+    plot_score_spread_by_category,
+    plot_parameter_distribution,
+)
 
 # ---------------------------------------------------------
 # Page Configuration & Custom Monocolor Dark Theme CSS
@@ -892,12 +900,182 @@ with tabs[1]:
 
 
 # ---------------------------------------------------------
-# Placeholder Tabs (Next Phases / Teammate Modules)
+# TAB 3: Univariate  — Annexure A Section 3
 # ---------------------------------------------------------
-for idx, tab_name in enumerate(["Univariate", "Bivariate", "Multivariate", "Distribution", "Transitions", "Outliers"], start=2):
-    with tabs[idx]:
-        st.markdown(f"#### {tab_name} Visualizations")
-        st.info(f"Phase 1 focused on `trends.py` validation. The {tab_name} questions from Annexure A will be activated in the next step.")
+with tabs[2]:
+    UNIVARIATE_QUESTIONS = [
+        "Q1 · Score distribution for a selected year",
+        "Q2 · Rank distribution for a selected year",
+        "Q3 · Summary statistics (mean / median / min / max) by year",
+        "Q4 · Quartile / rank-band breakdown over time",
+        "Q5 · Score spread across categories for a year",
+        "Q6 · Parameter-level distribution (TLR, RPC, GO, OI, PR)",
+    ]
+
+    col_uq, col_up = st.columns([1.6, 1.2])
+    with col_uq:
+        u_question = st.selectbox(
+            "Question",
+            options=UNIVARIATE_QUESTIONS,
+            index=0,
+            key="uni_q",
+        )
+
+    # ── Q1: Score distribution ──────────────────────────────────
+    if u_question == UNIVARIATE_QUESTIONS[0]:
+        all_years = sorted(df_full["year"].unique().tolist())
+        default_yr = all_years[-1] if all_years else 2024
+        with col_up:
+            u_year = st.selectbox("Year", options=all_years,
+                                  index=len(all_years)-1, key="uni_q1_yr")
+            u_bins = st.slider("Bins", 10, 40, 20, key="uni_q1_bins")
+
+        fig, takeaway = plot_score_distribution(
+            df=df_full, year=u_year, category=selected_category, bins=u_bins
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.markdown(
+            f'''<div class="takeaway-card">
+            <span class="takeaway-highlight">Takeaway:</span> {takeaway}
+            </div>''', unsafe_allow_html=True
+        )
+        with st.expander("🔍 View underlying data", expanded=False):
+            sub = df_full[
+                (df_full["year"] == u_year) & (df_full["category"] == selected_category)
+            ][["name", "state", "rank", "score"]].dropna(subset=["score"])
+            st.dataframe(sub.sort_values("score", ascending=False), use_container_width=True)
+
+    # ── Q2: Rank distribution ───────────────────────────────────
+    elif u_question == UNIVARIATE_QUESTIONS[1]:
+        all_years = sorted(df_full["year"].unique().tolist())
+        with col_up:
+            u_year = st.selectbox("Year", options=all_years,
+                                  index=len(all_years)-1, key="uni_q2_yr")
+            u_bins2 = st.slider("Bins", 10, 40, 20, key="uni_q2_bins")
+
+        fig, takeaway = plot_rank_distribution(
+            df=df_full, year=u_year, category=selected_category, bins=u_bins2
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.markdown(
+            f'''<div class="takeaway-card">
+            <span class="takeaway-highlight">Takeaway:</span> {takeaway}
+            </div>''', unsafe_allow_html=True
+        )
+
+    # ── Q3: Summary statistics ──────────────────────────────────
+    elif u_question == UNIVARIATE_QUESTIONS[2]:
+        fig, takeaway = plot_summary_statistics(
+            df=df_full, category=selected_category, year_range=year_range
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.markdown(
+            f'''<div class="takeaway-card">
+            <span class="takeaway-highlight">Takeaway:</span> {takeaway}
+            </div>''', unsafe_allow_html=True
+        )
+
+    # ── Q4: Rank-band breakdown ─────────────────────────────────
+    elif u_question == UNIVARIATE_QUESTIONS[3]:
+        fig, takeaway = plot_rank_band_breakdown(
+            df=df_full, category=selected_category, year_range=year_range
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.markdown(
+            f'''<div class="takeaway-card">
+            <span class="takeaway-highlight">Takeaway:</span> {takeaway}
+            </div>''', unsafe_allow_html=True
+        )
+
+    # ── Q5: Score spread across categories ─────────────────────
+    elif u_question == UNIVARIATE_QUESTIONS[4]:
+        all_years = sorted(df_full["year"].unique().tolist())
+        all_cats = sorted(df_full["category"].dropna().unique().tolist())
+        with col_up:
+            u_year5 = st.selectbox("Year", options=all_years,
+                                   index=len(all_years)-1, key="uni_q5_yr")
+        sel_cats = st.multiselect(
+            "Categories to compare",
+            options=all_cats,
+            default=all_cats[:6] if len(all_cats) > 6 else all_cats,
+            key="uni_q5_cats",
+        )
+
+        fig, takeaway = plot_score_spread_by_category(
+            df=df_full, year=u_year5,
+            categories=sel_cats if sel_cats else None
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.markdown(
+            f'''<div class="takeaway-card">
+            <span class="takeaway-highlight">Takeaway:</span> {takeaway}
+            </div>''', unsafe_allow_html=True
+        )
+
+    # ── Q6: Parameter distribution ──────────────────────────────
+    elif u_question == UNIVARIATE_QUESTIONS[5]:
+        all_years = sorted(df_full["year"].unique().tolist())
+        PARAMS = ["TLR", "RPC", "GO", "OI", "PR"]
+        with col_up:
+            u_year6 = st.selectbox("Year", options=all_years,
+                                   index=len(all_years)-1, key="uni_q6_yr")
+            u_style = st.radio("Chart style", ["violin", "box"],
+                               horizontal=True, key="uni_q6_style")
+        sel_params = st.multiselect(
+            "Parameters",
+            options=PARAMS,
+            default=PARAMS,
+            key="uni_q6_params",
+        )
+
+        fig, takeaway = plot_parameter_distribution(
+            df=df_full,
+            year=u_year6,
+            category=selected_category,
+            params=sel_params if sel_params else PARAMS,
+            chart_style=u_style,
+        )
+        st.plotly_chart(fig, use_container_width=True, config={"displayModeBar": False})
+        st.markdown(
+            f'''<div class="takeaway-card">
+            <span class="takeaway-highlight">Takeaway:</span> {takeaway}
+            </div>''', unsafe_allow_html=True
+        )
+
+# ---------------------------------------------------------
+# TAB 4: Bivariate (Placeholder)
+# ---------------------------------------------------------
+with tabs[3]:
+    st.markdown("#### Bivariate Visualizations")
+    st.info("Bivariate tab (Section 4 questions) will be activated in the next phase.")
+
+# ---------------------------------------------------------
+# TAB 5: Multivariate (Placeholder)
+# ---------------------------------------------------------
+with tabs[4]:
+    st.markdown("#### Multivariate Visualizations")
+    st.info("Multivariate tab (Section 5 questions) will be activated in the next phase.")
+
+# ---------------------------------------------------------
+# TAB 6: Distribution (Placeholder)
+# ---------------------------------------------------------
+with tabs[5]:
+    st.markdown("#### Distribution / Statistical Comparison")
+    st.info("Distribution tab (Section 6 questions) will be activated in the next phase.")
+
+# ---------------------------------------------------------
+# TAB 7: Transitions (Placeholder)
+# ---------------------------------------------------------
+with tabs[6]:
+    st.markdown("#### Ranking Transitions")
+    st.info("Transitions tab (Section 7 questions) will be activated in the next phase.")
+
+# ---------------------------------------------------------
+# TAB 8: Outliers (Placeholder)
+# ---------------------------------------------------------
+with tabs[7]:
+    st.markdown("#### Outliers & Gaps")
+    st.info("Outliers tab (Section 8 questions) will be activated in the next phase.")
 
 with tabs[8]:
     render_explore_tab(df_full, df_filtered)
