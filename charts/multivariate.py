@@ -1305,7 +1305,6 @@ def render_multivariate_tab(
     all_years = sorted(df["year"].dropna().unique().tolist())
     if not all_years:
         all_years = sorted(df_full["year"].dropna().unique().tolist())
-    all_states = sorted(df_full["state"].dropna().unique().tolist())
 
     if not category:
         category = "Overall"
@@ -1482,13 +1481,10 @@ def render_multivariate_tab(
     # ================================================================
     elif question == QUESTIONS[4]:
         with col_p:
-            year          = st.selectbox("Year", all_years, index=len(all_years) - 1, key="mv_q5_year")
-            top_n         = st.slider("Top N institutions", 5, 30, 15, key="mv_q5_n")
-            states_filter = st.multiselect("Filter by State (optional)", all_states, key="mv_q5_states")
+            year  = st.selectbox("Year", all_years, index=len(all_years) - 1, key="mv_q5_year")
+            top_n = st.slider("Top N institutions", 5, 30, 15, key="mv_q5_n")
 
-        df_state = df[df["state"].isin(states_filter)] if states_filter else df
-
-        fig, spread_df = q5_5_spread_bar(df_state, year=year, category=category, top_n=top_n)
+        fig, spread_df = q5_5_spread_bar(df, year=year, category=category, top_n=top_n)
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
 
         # Takeaway card

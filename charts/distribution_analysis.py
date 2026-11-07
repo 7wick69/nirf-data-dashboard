@@ -814,7 +814,6 @@ def render_distribution_tab(
     all_years = sorted(df["year"].dropna().unique().tolist())
     if not all_years:
         all_years = sorted(df_full["year"].dropna().unique().tolist())
-    all_states = sorted(df_full["state"].dropna().unique().tolist())
 
     if not category:
         category = "Overall"
@@ -939,15 +938,12 @@ def render_distribution_tab(
     # ================================================================
     elif question == QUESTIONS[3]:
         with col_p:
-            states_filter = st.multiselect("Filter by State (optional)",
-                                           all_states, key="ds_q4_states")
             years_filter  = st.multiselect("Filter Years (optional, default = all)",
                                            all_years, default=[], key="ds_q4_years")
 
         fig, trend_df = q6_4_median_iqr_trend(
             df,
             category=category,
-            states=states_filter if states_filter else None,
             years=years_filter if years_filter else None,
         )
         st.plotly_chart(fig, width="stretch", config={"displayModeBar": False})
@@ -984,13 +980,11 @@ def render_distribution_tab(
                                       horizontal=True, key="ds_q5_chart")
             top_n          = st.slider("Top N states (by institution count)", 3, 20, 10, key="ds_q5_topn")
             min_inst       = st.slider("Min institutions per state", 1, 10, 3, key="ds_q5_min")
-            states_pick    = st.multiselect("Or pick specific states", all_states, key="ds_q5_states")
 
         fig, state_df = q6_5_score_by_state(
             df_full,
             year=year,
             category=category,
-            selected_states=states_pick if states_pick else None,
             top_n=top_n,
             min_institutions=min_inst,
             chart_type=chart_type5.lower(),
