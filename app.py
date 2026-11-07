@@ -1,12 +1,15 @@
-"""
-app.py
+"""NIRF Interactive Analytics Dashboard.
 
-NIRF Interactive Analytics Dashboard
-Minimal, monocolor dark theme matching the design wireframe.
+Release-polished Streamlit UI. Analytics and chat processing remain in their
+existing modules; this file handles presentation, loading feedback and session UI.
 """
 
-import streamlit as st
+from html import escape
+
 import pandas as pd
+import streamlit as st
+
+from chatbot.chat_service import process_chat_message
 from core.data import (
     load_nirf_data,
     get_categories,
@@ -67,55 +70,78 @@ from charts.transitions import (
 )
 )
 
-# ---------------------------------------------------------
-# Page Configuration & Custom Monocolor Dark Theme CSS
-# ---------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Page configuration
+# -----------------------------------------------------------------------------
 st.set_page_config(
-    page_title="NIRF Explorer",
+    page_title="NIRF Explorer | Analytics Workspace",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded",
 )
 
+
+# -----------------------------------------------------------------------------
+# Theme and small UI details
+# -----------------------------------------------------------------------------
 DARK_CSS = """
 <style>
-/* Main Dark Theme & Fonts */
+:root {
+    --nirf-bg: #0f1013;
+    --nirf-panel: #15171d;
+    --nirf-panel-2: #1a1d24;
+    --nirf-border: #282d37;
+    --nirf-text: #e6edf3;
+    --nirf-muted: #9aa4b2;
+    --nirf-blue: #58a6ff;
+    --nirf-blue-strong: #388bfd;
+    --nirf-green: #3fb950;
+    --nirf-red: #f85149;
+}
+
 html, body, [class*="css"] {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                 Helvetica, Arial, sans-serif;
 }
-
-/* Backgrounds */
 .stApp {
-    background-color: #0f1013;
-    color: #e6edf3;
+    background: var(--nirf-bg);
+    color: var(--nirf-text);
 }
-
+.block-container {
+    max-width: 1500px;
+    padding-top: 1.7rem;
+    padding-bottom: 3rem;
+}
 section[data-testid="stSidebar"] {
-    background-color: #14161a;
+    background: #14161a;
     border-right: 1px solid #23272f;
 }
-
-/* Sidebar Headings & Labels */
-section[data-testid="stSidebar"] .stMarkdown h1,
-section[data-testid="stSidebar"] .stMarkdown h2,
-section[data-testid="stSidebar"] .stMarkdown h3 {
+section[data-testid="stSidebar"] h1,
+section[data-testid="stSidebar"] h2,
+section[data-testid="stSidebar"] h3 {
     color: #f0f3f6;
-    font-weight: 600;
+    font-weight: 650;
     letter-spacing: -0.02em;
 }
 
-/* Input widgets styling */
-div[data-baseweb="select"] > div {
-    background-color: #1a1d24 !important;
+/* Inputs */
+div[data-baseweb="select"] > div,
+.stTextInput input,
+.stNumberInput input {
+    background: var(--nirf-panel-2) !important;
     border: 1px solid #2d323b !important;
-    border-radius: 6px !important;
-    color: #e6edf3 !important;
+    border-radius: 7px !important;
+    color: var(--nirf-text) !important;
 }
+div[data-baseweb="select"] svg { fill: var(--nirf-muted) !important; }
 
-div[data-baseweb="select"] svg {
-    fill: #8b949e !important;
+/* App header */
+.nirf-hero {
+    padding: 4px 0 16px 0;
+    margin-bottom: 12px;
+    border-bottom: 1px solid var(--nirf-border);
 }
-
 /* Scoped Disabled State Filter styling (Geospatial Section) */
 div[data-baseweb="select"][aria-disabled="true"],
 div[data-baseweb="select"][aria-disabled="true"] > div,
@@ -156,135 +182,311 @@ div[data-testid="stSelectbox"]:has(div[aria-disabled="true"]) label p {
     font-size: 13.5px;
     font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 }
-
 .takeaway-highlight {
     color: #58a6ff;
     font-weight: 600;
 }
 
-/* Tab Bar Styling */
+.nirf-eyebrow {
+    color: var(--nirf-blue) !important;
+    font-size: .68rem;
+    font-weight: 800;
+    letter-spacing: .16em;
+    text-transform: uppercase;
+    margin-bottom: 7px;
+}
+.nirf-subtitle {
+    color: var(--nirf-muted) !important;
+    font-size: .88rem;
+    line-height: 1.55;
+    margin-top: 5px;
+}
+.nirf-takeaway {
+    background: #16181e;
+    border: 1px solid #262a33;
+    border-left: 3px solid var(--nirf-blue-strong);
+    border-radius: 8px;
+    padding: 12px 16px;
+    margin: 14px 0 20px;
+    color: #c9d1d9;
+    font-size: .84rem;
+    line-height: 1.55;
+}
+.nirf-takeaway-label {
+    color: var(--nirf-blue);
+    font-weight: 700;
+    margin-right: 5px;
+}
+
+/* Tabs */
 .stTabs [data-baseweb="tab-list"] {
-    gap: 8px;
-    background-color: transparent;
+    gap: 7px;
+    background: transparent;
     border-bottom: 1px solid #23272f;
     padding-bottom: 4px;
 }
-
 .stTabs [data-baseweb="tab"] {
-    height: 38px;
-    background-color: transparent;
+    height: 39px;
+    background: transparent;
     border: none;
     color: #8b949e;
-    font-size: 13.5px;
-    font-weight: 500;
-    padding: 0 14px;
-    border-radius: 6px;
-    transition: all 0.15s ease-in-out;
+    font-size: .82rem;
+    font-weight: 550;
+    padding: 0 13px;
+    border-radius: 7px 7px 0 0;
+    transition: background .15s ease, color .15s ease;
 }
-
 .stTabs [data-baseweb="tab"]:hover {
     color: #f0f3f6;
-    background-color: #1a1d24;
+    background: #1a1d24;
 }
-
 .stTabs [data-baseweb="tab"][aria-selected="true"] {
-    color: #58a6ff;
-    background-color: #1a1d24;
-    border-bottom: 2px solid #388bfd;
+    color: var(--nirf-blue);
+    background: #1a1d24;
+    border-bottom: 2px solid var(--nirf-blue-strong);
 }
 
-/* Metric / KPI Containers */
+/* Metrics and data tables */
 div[data-testid="stMetric"] {
-    background-color: #16181e;
-    border: 1px solid #262a33;
-    padding: 12px 16px;
+    background: var(--nirf-panel);
+    border: 1px solid var(--nirf-border);
+    padding: 12px 15px;
+    border-radius: 9px;
+}
+[data-testid="stDataFrame"] {
+    border: 1px solid var(--nirf-border);
     border-radius: 8px;
+    overflow: hidden;
+}
+div[data-testid="stPlotlyChart"] {
+    border-radius: 9px;
+    overflow: hidden;
 }
 
-/* Chat Mockup Container */
-.chat-wireframe {
-    background-color: #14161a;
-    border: 1px solid #262a33;
+/* Chat surface */
+[data-testid="stChatMessage"] {
+    border: 1px solid transparent;
+    border-radius: 12px;
+    padding: 13px 15px;
+    margin-bottom: 11px;
+}
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+    background: #171d28;
+    border-color: #253247;
+}
+[data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
+    background: #14161b;
+    border-color: #262a33;
+}
+.nirf-empty {
+    background: linear-gradient(145deg, #171a21, #121419);
+    border: 1px solid #2a303b;
+    border-radius: 13px;
+    padding: 24px;
+    margin: 12px 0 18px;
+}
+.nirf-empty-title {
+    color: var(--nirf-text) !important;
+    font-size: 1.12rem;
+    font-weight: 700;
+    margin-bottom: 5px;
+}
+.nirf-empty-copy {
+    color: var(--nirf-muted) !important;
+    font-size: .84rem;
+    line-height: 1.6;
+}
+.nirf-suggestion {
+    background: #191d25;
+    border: 1px solid #2b3340;
     border-radius: 8px;
-    padding: 16px;
-    margin-top: 15px;
+    padding: 10px 12px;
+    min-height: 70px;
+    color: #c9d1d9;
+    font-size: .78rem;
+    line-height: 1.45;
 }
-.chat-bubble-user {
-    background-color: #1f3554;
-    color: #c8e1ff;
-    padding: 10px 14px;
-    border-radius: 12px 12px 2px 12px;
-    max-width: 65%;
-    margin-left: auto;
-    margin-bottom: 12px;
-    font-size: 13.5px;
+
+/* Single native Streamlit loading indicator. */
+[data-testid="stSpinner"] * { color: var(--nirf-muted) !important; }
+[data-testid="stAlert"] { border-radius: 9px !important; }
+
+/* Buttons */
+.stButton > button {
+    border: 1px solid #303744;
+    border-radius: 8px;
+    background: #1a1d24;
+    color: var(--nirf-text);
+    font-weight: 600;
+    transition: border-color .15s ease, background .15s ease;
 }
-.chat-bubble-bot {
-    background-color: #1a1d24;
-    color: #e6edf3;
-    padding: 10px 14px;
-    border-radius: 12px 12px 12px 2px;
-    max-width: 75%;
-    margin-bottom: 12px;
-    font-size: 13.5px;
-    border: 1px solid #262a33;
+.stButton > button:hover {
+    border-color: #5277a8;
+    background: #202633;
+    color: white;
+}
+
+/* Responsive layout and motion accessibility */
+@media (max-width: 760px) {
+    .block-container { padding-top: 1.1rem; }
+    .stTabs [data-baseweb="tab-list"] { gap: 2px; overflow-x: auto; }
+    .stTabs [data-baseweb="tab"] { padding: 0 9px; font-size: .75rem; }
+    [data-testid="stChatMessage"] { padding: 10px; }
+}
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: .01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: .01ms !important;
+        scroll-behavior: auto !important;
+    }
 }
 </style>
 """
 st.markdown(DARK_CSS, unsafe_allow_html=True)
 
 
-# ---------------------------------------------------------
-# Data Loader with Caching
-# ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Helpers
+# -----------------------------------------------------------------------------
+def render_takeaway(takeaway: str | None) -> None:
+    if not takeaway:
+        return
+    st.markdown(
+        f'<div class="nirf-takeaway"><span class="nirf-takeaway-label">Takeaway</span>{escape(str(takeaway))}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def render_assistant_message(message: dict) -> None:
+    content = message.get("content") or "The request finished without a response. Please try again."
+    st.markdown(content)
+
+    if message.get("figure") is not None:
+        st.plotly_chart(
+            message["figure"],
+            use_container_width=True,
+            config={"displayModeBar": False, "responsive": True},
+        )
+
+    render_takeaway(message.get("takeaway"))
+
+    result = message.get("result")
+    if result:
+        with st.expander("🔍 View underlying data and statistics", expanded=False):
+            records = result.get("data") or []
+            if records:
+                st.dataframe(
+                    pd.DataFrame(records),
+                    use_container_width=True,
+                    hide_index=True,
+                )
+            else:
+                st.caption("The analysis returned no matching records.")
+            statistics = result.get("statistics") or {}
+            if statistics:
+                st.markdown("**Statistics**")
+                st.json(statistics)
+            notes = result.get("notes") or []
+            if notes:
+                st.markdown("**Method notes**")
+                for note in notes:
+                    st.caption(f"• {note}")
+
+
+def render_trend_result(fig, takeaway) -> None:
+    st.plotly_chart(
+        fig,
+        use_container_width=True,
+        config={"displayModeBar": False, "responsive": True},
+    )
+    render_takeaway(takeaway)
+
+
+def render_empty_chat_state() -> None:
+    st.markdown(
+        """
+        <div class="nirf-empty">
+            <div class="nirf-empty-title">Explore India's NIRF rankings with natural language</div>
+            <div class="nirf-empty-copy">
+                Ask about institutional rankings, yearly trends, state representation,
+                score distributions, parameter relationships or ranking movements.
+                Your question is analysed locally; Python performs the calculations.
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+    suggestions = [
+        "Show the top 10 Engineering institutions in 2025.",
+        "Compare RPC and TLR across Engineering institutions in 2025.",
+        "Which states have the most institutions in the Overall top 100 in 2025?",
+    ]
+    cols = st.columns(3)
+    for col, suggestion in zip(cols, suggestions):
+        with col:
+            st.markdown(
+                f'<div class="nirf-suggestion">{escape(suggestion)}</div>',
+                unsafe_allow_html=True,
+            )
+
+
+# -----------------------------------------------------------------------------
+# Dataset loading with caching
+# -----------------------------------------------------------------------------
 @st.cache_data(show_spinner=False)
 def get_dataset(custom_file=None):
     if custom_file is not None:
-        if custom_file.name.endswith(".parquet"):
-            df = pd.read_parquet(custom_file)
+        if custom_file.name.lower().endswith(".parquet"):
+            frame = pd.read_parquet(custom_file)
         else:
-            df = pd.read_csv(custom_file)
+            frame = pd.read_csv(custom_file)
         from core.metrics import compute_derived_metrics
-        return compute_derived_metrics(df)
+        return compute_derived_metrics(frame)
     return load_nirf_data()
 
 
-# ---------------------------------------------------------
-# Sidebar: Global Filters
-# ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Sidebar and global filters
+# -----------------------------------------------------------------------------
 with st.sidebar:
-    st.markdown("### NIRF explorer")
+    st.markdown("### 📊 NIRF Explorer")
+    st.caption("Interactive ranking and performance analysis")
 
-    # Optional Custom Dataset Uploader
-    with st.expander("📁 Data Source", expanded=False):
+    with st.expander("📁 Data source", expanded=False):
         uploaded_file = st.file_uploader(
             "Upload NIRF Parquet / CSV",
             type=["parquet", "csv"],
-            help="Upload your own NIRF dataset or use the clean default.",
+            help="Upload a compatible NIRF dataset or use the cleaned default dataset.",
         )
         if uploaded_file is not None:
             st.success(f"Loaded: {uploaded_file.name}")
+        else:
+            st.caption("Using the default cleaned NIRF dataset.")
 
-    df_full = get_dataset(uploaded_file)
+    with st.spinner("Loading NIRF dataset..."):
+        df_full = get_dataset(uploaded_file)
 
-    # Years Filter
+    if df_full.empty:
+        st.error("The selected dataset contains no records.")
+        st.stop()
+
     min_yr, max_yr = get_year_range(df_full)
     year_range = st.slider(
         "Years",
-        min_value=min_yr,
-        max_value=max_yr,
-        value=(min_yr, max_yr),
+        min_value=int(min_yr),
+        max_value=int(max_yr),
+        value=(int(min_yr), int(max_yr)),
         step=1,
-        help="Select year span",
+        help="Global year range for the dashboard views.",
     )
 
-    # Category Filter
     categories = get_categories(df_full)
     selected_category = st.selectbox(
         "Category",
         options=categories,
         index=0,
-        help="Select NIRF category",
+        help="Global NIRF category filter for dashboard views.",
     )
 
     # Detect if currently selected topic belongs to Geospatial & Regional Analysis
@@ -294,25 +496,32 @@ with st.sidebar:
         or active_topic in ["Geo", "Geospatial", "Geospatial & Regional", "Geospatial and Regional Analysis"]
     )
 
-    # State Filter: dynamically disabled & greyed out ONLY for Geospatial topics/graphs
     all_states = ["All states"] + get_states(df_full)
     selected_state = st.selectbox(
-        "States",
+        "State",
         options=all_states,
         index=0 if is_geo_active else 0,
         disabled=is_geo_active,
         help=(
             "State filter is disabled specifically for Geospatial and Regional Analysis because all states are analyzed simultaneously across India."
             if is_geo_active
-            else "Filter by state or all states"
+            else "Global state filter for dashboard views."
         ),
         key="global_state_selector",
     )
 
+    st.divider()
+    st.caption("Dataset snapshot")
+    metric_cols = st.columns(2)
+    metric_cols[0].metric("Records", f"{len(df_full):,}")
+    metric_cols[1].metric("Categories", f"{len(categories):,}")
+    st.caption(f"Available years: {min_yr}–{max_yr} · {len(get_states(df_full))} states/UTs")
+    st.caption("Global filters apply to the analytical dashboard tabs. Ask queries use the category/year stated in your question.")
 
-# ---------------------------------------------------------
-# Filter Dataset Globally
-# ---------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# Apply global filters
+# -----------------------------------------------------------------------------
 df_filtered = df_full[
     (df_full["year"] >= year_range[0])
     & (df_full["year"] <= year_range[1])
@@ -322,9 +531,27 @@ if selected_state != "All states":
     df_filtered = df_filtered[df_filtered["state"] == selected_state]
 
 
-# ---------------------------------------------------------
-# Main App Header & Tabs Navigation
-# ---------------------------------------------------------
+# -----------------------------------------------------------------------------
+# Main header
+# -----------------------------------------------------------------------------
+st.markdown(
+    """
+    <div class="nirf-hero">
+        <div class="nirf-eyebrow">National Institutional Ranking Framework</div>
+        <h1 style="margin:0; color:#f0f3f6; letter-spacing:-.035em;">NIRF Explorer</h1>
+        <div class="nirf-subtitle">
+            Explore institutional performance, ranking movements and regional trends
+            across NIRF categories and years.
+        </div>
+    </div>
+    """,
+    unsafe_allow_html=True,
+)
+
+
+# -----------------------------------------------------------------------------
+# Navigation
+# -----------------------------------------------------------------------------
 tabs = st.tabs([
     "Trends",
     "Geospatial and Regional Analysis",
@@ -1759,9 +1986,79 @@ with tabs[7]:
 with tabs[8]:
     render_explore_tab(df_full, df_filtered)
 
+# -----------------------------------------------------------------------------
+# TAB 10: Ask — local NLP chatbot
+# -----------------------------------------------------------------------------
 with tabs[9]:
-    st.markdown("#### Ask (Level 3 - Natural Language Query)")
-    st.info("The Ask tab (Level 3 natural language query interface) is staged for Phase 3.")
+    st.markdown("#### 🎓 NIRF AI Analyst")
+    st.caption("Ask questions in natural language. Local Qwen interprets the query; Python performs the analysis.")
 
+    if "nirf_ask_messages" not in st.session_state:
+        st.session_state.nirf_ask_messages = []
+    if "nirf_ask_context" not in st.session_state:
+        st.session_state.nirf_ask_context = None
 
+    col_title, col_reset = st.columns([5, 1])
+    with col_title:
+        st.caption("Questions can cover rankings, trends, comparisons, distributions, correlations, geography and outliers.")
+    with col_reset:
+        if st.button("Clear chat", key="nirf_clear_chat", use_container_width=True):
+            st.session_state.nirf_ask_messages = []
+            st.session_state.nirf_ask_context = None
+            st.rerun()
 
+    for message in st.session_state.nirf_ask_messages:
+        with st.chat_message(message["role"]):
+            if message["role"] == "assistant":
+                render_assistant_message(message)
+            else:
+                st.markdown(message.get("content", ""))
+
+    question = st.chat_input("Ask a question about NIRF rankings...")
+    if not st.session_state.nirf_ask_messages and not question:
+        render_empty_chat_state()
+
+    if question:
+        st.session_state.nirf_ask_messages.append(
+            {"role": "user", "content": question}
+        )
+        with st.chat_message("user"):
+            st.markdown(question)
+
+        # One native Streamlit spinner: no duplicate custom loading animation.
+        try:
+            with st.spinner("NIRF AI Analyst is processing your question..."):
+                response = process_chat_message(
+                    question,
+                    st.session_state.nirf_ask_context,
+                )
+        except Exception as exc:  # Keep the UI usable if a backend exception escapes.
+            response = {
+                "status": "error",
+                "answer": "The analysis could not be completed. Please try again or simplify the question.",
+                "technical_error": str(exc),
+                "context": st.session_state.nirf_ask_context,
+                "result": None,
+                "figure": None,
+                "takeaway": None,
+            }
+
+        st.session_state.nirf_ask_context = response.get(
+            "context", st.session_state.nirf_ask_context
+        )
+        assistant_message = {
+            "role": "assistant",
+            "content": response.get("answer") or "No response was returned. Please try again.",
+            "status": response.get("status", "error"),
+            "figure": response.get("figure"),
+            "takeaway": response.get("takeaway"),
+            "result": response.get("result"),
+            "technical_error": response.get("technical_error"),
+        }
+        st.session_state.nirf_ask_messages.append(assistant_message)
+
+        with st.chat_message("assistant"):
+            render_assistant_message(assistant_message)
+            if assistant_message.get("technical_error"):
+                with st.expander("Technical details", expanded=False):
+                    st.code(assistant_message["technical_error"])

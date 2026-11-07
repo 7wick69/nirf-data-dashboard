@@ -1,0 +1,3 @@
+# Add these only if they are not already present in requirements.txt
+ollama>=0.4.0
+scikit-learn>=1.4.0
