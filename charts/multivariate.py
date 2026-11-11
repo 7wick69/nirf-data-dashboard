@@ -1011,14 +1011,16 @@ def q5_3_scatter_tlr_pr(
         layer="below",
     )
 
-    # Shaded quadrant watermark label
+    # Shaded quadrant watermark label placed neatly in the bottom corner
     fig.add_annotation(
-        x=min(100.0, x_thresh + (max_x - x_thresh) * 0.5),
-        y=max(1.5, y_thresh * 0.18),
-        text="TARGET REGION<br>High Teaching · Low Perception",
+        x=max_x - 0.5,
+        y=0.8,
+        text="<b>TARGET REGION</b><br><span style='font-size:9px'>High Teaching · Low Perception</span>",
         showarrow=False,
-        font=dict(color="rgba(239, 68, 68, 0.6)", size=11, family="Inter, sans-serif"),
-        align="center",
+        xanchor="right",
+        yanchor="bottom",
+        font=dict(color="rgba(239, 68, 68, 0.45)", size=10, family="Inter, sans-serif"),
+        align="right",
     )
 
     # 2. Add points by quadrant
@@ -1058,70 +1060,57 @@ def q5_3_scatter_tlr_pr(
     # Add Target Quadrant points
     qdf_target = scatter_df[scatter_df["quadrant"] == "High TLR · Low PR (Target)"]
     if not qdf_target.empty:
-        top_target = qdf_target[qdf_target["name"].isin(top_labeled_names)].copy()
-        other_target = qdf_target[~qdf_target["name"].isin(top_labeled_names)].copy()
+        fig.add_trace(go.Scatter(
+            x=qdf_target["TLR"],
+            y=qdf_target["PR"],
+            mode="markers",
+            name="High TLR · Low PR (Target)",
+            marker=dict(
+                color=ACCENT_RED,
+                size=11,
+                symbol="circle",
+                opacity=0.95,
+                line=dict(width=2, color="#ffffff"),
+            ),
+            customdata=qdf_target[["name", "state", "rank_num", "TLR_pct", "PR_pct", "pct_gap", "raw_gap", "score"]].values,
+            hovertemplate=(
+                "<b>%{customdata[0]}</b> 🎯 (Target Quadrant)<br>"
+                "State: %{customdata[1]} | Rank: #%{customdata[2]:.0f}<br>"
+                "Teaching (TLR): %{x:.1f} (%{customdata[3]:.0f}th %ile)<br>"
+                "Perception (PR): %{y:.1f} (%{customdata[4]:.0f}th %ile)<br>"
+                "Percentile Gap: +%{customdata[5]:.0f}% (%{customdata[6]:+.1f} score pts)<br>"
+                "Overall Score: %{customdata[7]:.1f}"
+                "<extra></extra>"
+            ),
+            showlegend=True,
+        ))
 
-        if not other_target.empty:
-            fig.add_trace(go.Scatter(
-                x=other_target["TLR"],
-                y=other_target["PR"],
-                mode="markers",
-                name="High TLR · Low PR (Target)",
-                marker=dict(
-                    color=ACCENT_RED,
-                    size=9,
-                    opacity=0.85,
-                    line=dict(width=1, color="#fee2e2"),
-                ),
-                customdata=other_target[["name", "state", "rank_num", "TLR_pct", "PR_pct", "pct_gap", "raw_gap", "score"]].values,
-                hovertemplate=(
-                    "<b>%{customdata[0]}</b> (Target)<br>"
-                    "State: %{customdata[1]} | Rank: #%{customdata[2]:.0f}<br>"
-                    "Teaching (TLR): %{x:.1f} (%{customdata[3]:.0f}th %ile)<br>"
-                    "Perception (PR): %{y:.1f} (%{customdata[4]:.0f}th %ile)<br>"
-                    "Percentile Gap: +%{customdata[5]:.0f}% (%{customdata[6]:+.1f} score pts)<br>"
-                    "Overall Score: %{customdata[7]:.1f}"
-                    "<extra></extra>"
-                ),
-                showlegend=top_target.empty,
-            ))
-
-        if not top_target.empty:
-            top_target["label"] = top_target["name"].apply(lambda n: shorten_institution_name(n, 22))
-            fig.add_trace(go.Scatter(
-                x=top_target["TLR"],
-                y=top_target["PR"],
-                mode="markers+text",
-                name="High TLR · Low PR (Target)",
-                text=top_target["label"],
-                textposition="top right",
-                textfont=dict(size=10, color="#fca5a5", family="Inter, sans-serif"),
-                marker=dict(
-                    color=ACCENT_RED,
-                    size=10,
-                    symbol="circle",
-                    opacity=0.95,
-                    line=dict(width=1.5, color="#ffffff"),
-                ),
-                customdata=top_target[["name", "state", "rank_num", "TLR_pct", "PR_pct", "pct_gap", "raw_gap", "score"]].values,
-                hovertemplate=(
-                    "<b>%{customdata[0]}</b> (Target Top Gap)<br>"
-                    "State: %{customdata[1]} | Rank: #%{customdata[2]:.0f}<br>"
-                    "Teaching (TLR): %{x:.1f} (%{customdata[3]:.0f}th %ile)<br>"
-                    "Perception (PR): %{y:.1f} (%{customdata[4]:.0f}th %ile)<br>"
-                    "Percentile Gap: +%{customdata[5]:.0f}% (%{customdata[6]:+.1f} score pts)<br>"
-                    "Overall Score: %{customdata[7]:.1f}"
-                    "<extra></extra>"
-                ),
-                showlegend=True,
-            ))
+        # Add single, polished arrow annotation for the #1 top disparity institution
+        top_inst = qdf_target.sort_values("pct_gap", ascending=False).iloc[0]
+        fig.add_annotation(
+            x=top_inst["TLR"],
+            y=top_inst["PR"],
+            text=f"<b>#1 Disparity:</b> {shorten_institution_name(top_inst['name'], 22)} (+{top_inst['pct_gap']:.0f}% gap)",
+            showarrow=True,
+            arrowhead=2,
+            arrowsize=1,
+            arrowwidth=1.5,
+            arrowcolor="#fca5a5",
+            ax=40,
+            ay=-32,
+            bgcolor="rgba(24, 24, 27, 0.90)",
+            bordercolor="#ef4444",
+            borderwidth=1,
+            borderpad=4,
+            font=dict(color="#fecaca", size=10, family="Inter, sans-serif"),
+        )
 
     # Crosshair lines
     fig.add_hline(
         y=y_thresh, line_dash="dot", line_color=MUTED_TEXT, line_width=1.2,
         annotation_text=y_annot,
         annotation_font=dict(size=10, color=MUTED_TEXT),
-        annotation_position="bottom right",
+        annotation_position="top left",
     )
     fig.add_vline(
         x=x_thresh, line_dash="dot", line_color=MUTED_TEXT, line_width=1.2,
@@ -1132,10 +1121,11 @@ def q5_3_scatter_tlr_pr(
 
     apply_theme(
         fig,
-        title=f"Quadrant Scatter: Teaching (TLR) vs Perception (PR) | {category} · {year}",
+        title=f"Teaching (TLR) vs Perception (PR) | {category} · {year}",
         xaxis_title="TLR — Teaching, Learning & Resources (score out of 100)",
         yaxis_title="PR — Perception (score out of 100)",
         show_legend=True,
+        legend_position="bottom",
     )
     fig.update_layout(
         height=chart_height,
@@ -1143,21 +1133,20 @@ def q5_3_scatter_tlr_pr(
         yaxis=dict(range=[-2.0, min(105.0, scatter_df["PR"].max() + 6.0)]),
         legend=dict(
             orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="left",
-            x=0,
-            bgcolor="rgba(22, 24, 30, 0.75)",
-            font=dict(size=10),
+            yanchor="top",
+            y=-0.16,
+            xanchor="center",
+            x=0.5,
+            bgcolor="rgba(22, 24, 30, 0.85)",
+            bordercolor=GRID_COLOR,
+            borderwidth=1,
+            font=dict(size=10, color=MUTED_TEXT),
         ),
+        margin=dict(l=60, r=30, t=60, b=85),
     )
 
-    # Return quadrant_df
-    if not target_df.empty:
-        quadrant_df = target_df.reset_index(drop=True)
-    else:
-        quadrant_df = scatter_df.sort_values("pct_gap", ascending=False).reset_index(drop=True)
-
+    # Return quadrant_df sorted by percentile gap descending
+    quadrant_df = scatter_df.sort_values("pct_gap", ascending=False).reset_index(drop=True)
     return fig, quadrant_df
 
 
@@ -1166,7 +1155,7 @@ def q5_3_dumbbell_chart(
     category: str,
     year: int,
     top_n: int = 10,
-    chart_height: int = 680,
+    chart_height: int = 580,
 ) -> go.Figure:
     """
     Companion chart: Horizontal Dumbbell plot of top institutions by gap (TLR vs PR).
@@ -1179,7 +1168,7 @@ def q5_3_dumbbell_chart(
 
     # Take top N by pct_gap, reverse so #1 gap is at the top of the horizontal chart
     top_sub = df_data.sort_values("pct_gap", ascending=False).head(top_n).iloc[::-1].copy()
-    y_labels = [shorten_institution_name(r["name"], 32) for _, r in top_sub.iterrows()]
+    y_labels = [shorten_institution_name(r["name"], 28) for _, r in top_sub.iterrows()]
 
     # Draw dumbbell connecting lines as single trace
     x_lines = []
@@ -1192,7 +1181,7 @@ def q5_3_dumbbell_chart(
         x=x_lines,
         y=y_lines,
         mode="lines",
-        line=dict(color="#475569", width=2.8),
+        line=dict(color="#475569", width=2.5),
         showlegend=False,
         hoverinfo="skip",
     ))
@@ -1205,7 +1194,7 @@ def q5_3_dumbbell_chart(
         name="Perception (PR)",
         marker=dict(
             color="#f59e0b",  # Amber
-            size=11,
+            size=10,
             symbol="circle",
             line=dict(width=1.2, color=DARK_BG),
         ),
@@ -1219,7 +1208,10 @@ def q5_3_dumbbell_chart(
     ))
 
     # TLR markers (Teaching) with badge text
-    gap_badges = [f" +{r['pct_gap']:.0f}% (%ile gap)" for _, r in top_sub.iterrows()]
+    gap_badges = [
+        f" +{r['pct_gap']:.0f}%" + (" 🎯" if "Target" in str(r.get("quadrant", "")) else "")
+        for _, r in top_sub.iterrows()
+    ]
     fig.add_trace(go.Scatter(
         x=top_sub["TLR"],
         y=y_labels,
@@ -1227,10 +1219,10 @@ def q5_3_dumbbell_chart(
         name="Teaching (TLR)",
         text=gap_badges,
         textposition="middle right",
-        textfont=dict(size=10.5, color="#94a3b8", family="Inter, sans-serif"),
+        textfont=dict(size=10.5, color="#cbd5e1", family="Inter, sans-serif"),
         marker=dict(
             color="#10b981",  # Emerald
-            size=11,
+            size=10,
             symbol="circle",
             line=dict(width=1.2, color=DARK_BG),
         ),
@@ -1244,28 +1236,31 @@ def q5_3_dumbbell_chart(
         ),
     ))
 
-    max_tlr = float(top_sub["TLR"].max()) if not top_sub.empty else 100.0
     apply_theme(
         fig,
-        title=f"Ranked Disparity: Teaching vs Perception | {category} · {year}",
+        title=f"Ranked Disparity: TLR vs PR | {category} · {year}",
         xaxis_title="Score out of 100 (Teaching vs Perception)",
         yaxis_title="",
         show_legend=True,
+        legend_position="bottom",
     )
     fig.update_layout(
         height=chart_height,
-        xaxis=dict(range=[0, min(120.0, max_tlr + 20.0)]),
+        xaxis=dict(range=[0, 116], zeroline=False),
         legend=dict(
             orientation="h",
-            yanchor="bottom",
-            y=1.02,
-            xanchor="left",
-            x=0,
-            bgcolor="rgba(22, 24, 30, 0.75)",
-            font=dict(size=10),
+            yanchor="top",
+            y=-0.16,
+            xanchor="center",
+            x=0.5,
+            bgcolor="rgba(22, 24, 30, 0.85)",
+            bordercolor=GRID_COLOR,
+            borderwidth=1,
+            font=dict(size=10, color=MUTED_TEXT),
         ),
-        margin=dict(l=10, r=40, t=65, b=50),
+        margin=dict(l=10, r=65, t=60, b=85),
     )
+    fig.update_yaxes(automargin=True)
     return fig
 
 
@@ -1274,7 +1269,7 @@ def q5_3_diverging_bar(
     category: str,
     year: int,
     top_n: int = 10,
-    chart_height: int = 680,
+    chart_height: int = 580,
 ) -> go.Figure:
     """
     Companion chart: Horizontal Bar chart showing the gap (TLR percentile - PR percentile).
@@ -1285,8 +1280,11 @@ def q5_3_diverging_bar(
         return fig
 
     top_sub = df_data.sort_values("pct_gap", ascending=False).head(top_n).iloc[::-1].copy()
-    y_labels = [shorten_institution_name(r["name"], 32) for _, r in top_sub.iterrows()]
-    bar_texts = [f"+{r['pct_gap']:.0f}% (%ile gap) · TLR {r['TLR']:.0f} vs PR {r['PR']:.0f}" for _, r in top_sub.iterrows()]
+    y_labels = [shorten_institution_name(r["name"], 28) for _, r in top_sub.iterrows()]
+    bar_texts = [
+        f" +{r['pct_gap']:.0f}% gap (TLR {r['TLR']:.0f} | PR {r['PR']:.0f})"
+        for _, r in top_sub.iterrows()
+    ]
 
     fig.add_trace(go.Bar(
         x=top_sub["pct_gap"],
@@ -1298,8 +1296,7 @@ def q5_3_diverging_bar(
             line=dict(color=DARK_BG, width=1),
         ),
         text=bar_texts,
-        textposition="inside",
-        insidetextanchor="middle",
+        textposition="auto",
         textfont=dict(size=10, color="#ffffff", family="Inter, sans-serif"),
         customdata=top_sub[["name", "state", "rank_num", "TLR", "PR", "pct_gap", "raw_gap"]].values,
         hovertemplate=(
@@ -1315,7 +1312,7 @@ def q5_3_diverging_bar(
 
     apply_theme(
         fig,
-        title=f"Ranked Gap (TLR %ile − PR %ile) | {category} · {year}",
+        title=f"Ranked Disparity: TLR vs PR | {category} · {year}",
         xaxis_title="Teaching Percentile Advantage over Perception (%ile Gap)",
         yaxis_title="",
         show_legend=False,
@@ -1323,9 +1320,10 @@ def q5_3_diverging_bar(
     max_gap = float(top_sub["pct_gap"].max()) if not top_sub.empty else 100.0
     fig.update_layout(
         height=chart_height,
-        xaxis=dict(range=[0, min(105.0, max_gap + 8.0)]),
-        margin=dict(l=10, r=40, t=65, b=50),
+        xaxis=dict(range=[0, min(115.0, max_gap + 12.0)]),
+        margin=dict(l=10, r=40, t=60, b=50),
     )
+    fig.update_yaxes(automargin=True)
     return fig
 
 
@@ -1727,42 +1725,32 @@ def render_multivariate_tab(
                 year = st.selectbox("Year", all_years, index=len(all_years) - 1, key="mv_q3_year")
             with c_mode:
                 thresh_mode = st.radio(
-                    "Threshold basis",
-                    ["Percentile (Recommended)", "Raw Score"],
+                    "Threshold Mode",
+                    ["Percentiles", "Raw Scores"],
                     horizontal=True,
                     key="mv_q3_mode",
-                    help="PR is heavily skewed in NIRF. Percentiles objectively isolate true outliers."
+                    help="Percentile ranking objectively handles skewed Perception scores.",
                 )
 
-            if thresh_mode == "Percentile (Recommended)":
-                c_p1, c_p2 = st.columns(2)
-                with c_p1:
-                    tlr_pct_val = st.slider("High Teaching Cutoff (TLR %ile)", 50, 95, 75, 5, key="mv_q3_tlr_pct", help="TLR percentile threshold defining 'High Teaching'")
-                with c_p2:
-                    pr_pct_val = st.slider("Low Perception Cutoff (PR %ile)", 5, 50, 25, 5, key="mv_q3_pr_pct", help="PR percentile threshold defining 'Relatively Low Perception'")
+        c_cut1, c_cut2, c_topn, c_comp = st.columns([1.2, 1.2, 0.9, 1.1])
+        with c_cut1:
+            if thresh_mode == "Percentiles":
+                tlr_pct_val = st.slider("High Teaching Cutoff (TLR)", 50, 95, 75, 5, format="%d%%", key="mv_q3_tlr_pct", help="TLR percentile threshold defining 'High Teaching'")
                 tlr_thresh_in = None
+            else:
+                tlr_thresh_in = st.slider("TLR Raw Cutoff", 0.0, 100.0, default_tlr, 0.5, key="mv_q3_tlr_raw")
+                tlr_pct_val = 75.0
+        with c_cut2:
+            if thresh_mode == "Percentiles":
+                pr_pct_val = st.slider("Low Perception Cutoff (PR)", 5, 50, 25, 5, format="%d%%", key="mv_q3_pr_pct", help="PR percentile threshold defining 'Relatively Low Perception'")
                 pr_thresh_in = None
             else:
-                c_p1, c_p2 = st.columns(2)
-                with c_p1:
-                    tlr_thresh_in = st.slider("TLR Raw Cutoff", 0.0, 100.0, default_tlr, 0.5, key="mv_q3_tlr_raw")
-                with c_p2:
-                    pr_thresh_in = st.slider("PR Raw Cutoff", 0.0, 100.0, default_pr, 0.5, key="mv_q3_pr_raw")
-                tlr_pct_val = 75.0
+                pr_thresh_in = st.slider("PR Raw Cutoff", 0.0, 100.0, default_pr, 0.5, key="mv_q3_pr_raw")
                 pr_pct_val = 25.0
-
-            c_opt1, c_opt2 = st.columns([1, 1.3])
-            with c_opt1:
-                top_n = st.slider("Top N institutions by gap", 5, 20, 10, key="mv_q3_topn", help="Number of institutions to annotate on scatter and rank in companion chart")
-            with c_opt2:
-                comp_type = st.radio("Companion format", ["Dumbbell Chart", "Diverging Gap Bar"], horizontal=True, key="mv_q3_comp_type")
-
-            layout_choice = st.radio(
-                "Display layout",
-                ["Side-by-Side (Scatter + Ranked List)", "Scatter Focus (Full Width)", "Ranked List Focus (Full Width)"],
-                horizontal=True,
-                key="mv_q3_layout",
-            )
+        with c_topn:
+            top_n = st.slider("Top N Ranked", 5, 20, 10, key="mv_q3_topn", help="Number of institutions to display in the companion ranked list")
+        with c_comp:
+            comp_type = st.radio("Companion View", ["Dumbbell", "Bar"], horizontal=True, key="mv_q3_comp_type")
 
         fig_scatter, quad_df = q5_3_scatter_tlr_pr(
             df,
@@ -1770,31 +1758,26 @@ def render_multivariate_tab(
             category=category,
             x_threshold=tlr_thresh_in,
             y_threshold=pr_thresh_in,
-            threshold_mode="percentile" if thresh_mode.startswith("Percentile") else "raw",
+            threshold_mode="percentile" if thresh_mode == "Percentiles" else "raw",
             tlr_percentile=float(tlr_pct_val),
             pr_percentile=float(pr_pct_val),
             top_n_labels=int(top_n),
-            chart_height=680,
+            chart_height=580,
         )
 
-        if comp_type == "Dumbbell Chart":
+        if comp_type == "Dumbbell":
             fig_companion = q5_3_dumbbell_chart(
-                quad_df, category=category, year=year, top_n=int(top_n), chart_height=680
+                quad_df, category=category, year=year, top_n=int(top_n), chart_height=580
             )
         else:
             fig_companion = q5_3_diverging_bar(
-                quad_df, category=category, year=year, top_n=int(top_n), chart_height=680
+                quad_df, category=category, year=year, top_n=int(top_n), chart_height=580
             )
 
-        if layout_choice == "Side-by-Side (Scatter + Ranked List)":
-            col_scat, col_comp = st.columns([1.18, 1.0], gap="large")
-            with col_scat:
-                st.plotly_chart(fig_scatter, width="stretch", config={"displayModeBar": False})
-            with col_comp:
-                st.plotly_chart(fig_companion, width="stretch", config={"displayModeBar": False})
-        elif layout_choice == "Scatter Focus (Full Width)":
+        col_scat, col_comp = st.columns([1.15, 1.0], gap="medium")
+        with col_scat:
             st.plotly_chart(fig_scatter, width="stretch", config={"displayModeBar": False})
-        else:
+        with col_comp:
             st.plotly_chart(fig_companion, width="stretch", config={"displayModeBar": False})
 
         # Takeaway card
