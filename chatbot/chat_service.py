@@ -46,6 +46,8 @@ def resolve_ollama_model(default: str = "qwen2.5:latest") -> str:
     env_m = os.getenv("OLLAMA_MODEL")
     if env_m:
         return env_m
+    if ollama is None:
+        return default
     try:
         models = [m.model for m in ollama.list().models]
         if models:

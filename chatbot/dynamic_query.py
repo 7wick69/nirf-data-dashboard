@@ -10,6 +10,11 @@ import json
 import os
 from typing import Any
 
+try:
+    import ollama
+except ImportError:
+    ollama = None
+
 import numpy as np
 import pandas as pd
 
@@ -206,17 +211,22 @@ Rules:
 - sort_by must be one of the allowed fields. sort_order=descending for highest score/metric, ascending for best rank.
 - aggregation must be one of mean, median, sum, count, min, max, std.
 - Do not add fields outside the schema. Return only the JSON object."""
-        response = ollama.chat(
-            model=model or self.model,
-            messages=[
-                {"role": "system", "content": system},
-                {"role": "user", "content": json.dumps({"question": question, "conversation_context": context or {}}, ensure_ascii=False)},
-            ],
-            format=PLAN_SCHEMA,
-            options={"temperature": 0},
-            stream=False,
-        )
-        content = response.message.content
+        if ollama is None:
+            raise DynamicQueryError("Ollama package is not available.")
+        try:
+            response = ollama.chat(
+                model=model or self.model,
+                messages=[
+                    {"role": "system", "content": system},
+                    {"role": "user", "content": json.dumps({"question": question, "conversation_context": context or {}}, ensure_ascii=False)},
+                ],
+                format=PLAN_SCHEMA,
+                options={"temperature": 0},
+                stream=False,
+            )
+            content = response.message.content
+        except Exception as exc:
+            raise DynamicQueryError(f"Ollama dynamic query planning failed: {exc}") from exc
         try:
             plan = json.loads(content)
         except (TypeError, json.JSONDecodeError) as exc:
