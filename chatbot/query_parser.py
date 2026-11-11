@@ -2,7 +2,10 @@ import json
 import os
 import re
 
-import ollama
+try:
+    import ollama
+except ImportError:
+    ollama = None
 
 from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
@@ -563,20 +566,37 @@ Do not inherit previous categories, years, states,
 institutions or metrics.
 Current user message:{question}"""
 
-    response = ollama.chat(
-        model=MODEL,
-        messages=[
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": prompt}
-        ],
-        format=NIRFQuery.model_json_schema(),
-        options={"temperature": 0},
-        stream=False
-    )
+    candidate = None
+    if ollama is not None:
+        try:
+            response = ollama.chat(
+                model=MODEL,
+                messages=[
+                    {"role": "system", "content": SYSTEM_PROMPT},
+                    {"role": "user", "content": prompt}
+                ],
+                format=NIRFQuery.model_json_schema(),
+                options={"temperature": 0},
+                stream=False
+            )
 
-    candidate = NIRFQuery.model_validate_json(
-        response.message.content
-    )
+            candidate = NIRFQuery.model_validate_json(
+                response.message.content
+            )
+        except Exception:
+            candidate = None
+
+    if candidate is None:
+        det_slots = extract_slots(question)
+        det_int = detect_intent(question) or "ranking"
+        candidate = NIRFQuery(
+            intent=det_int,
+            category=det_slots.get("category", "Overall"),
+            year=det_slots.get("year", 2024),
+            top_n=det_slots.get("top_n", 10),
+            state=det_slots.get("state"),
+            institution_name=det_slots.get("institution_name"),
+        )
 
     # Extract explicit details deterministically
     slots = extract_slots(question)
