@@ -39,7 +39,22 @@ METRIC_GLOSSARY = {
     "SFC": "Student and Faculty Contribution",
 }
 
-MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5:latest")
+def resolve_ollama_model(default: str = "qwen2.5:latest") -> str:
+    env_m = os.getenv("OLLAMA_MODEL")
+    if env_m:
+        return env_m
+    try:
+        models = [m.model for m in ollama.list().models]
+        if models:
+            for m in models:
+                if "qwen" in m.lower():
+                    return m
+            return models[0]
+    except Exception:
+        pass
+    return default
+
+MODEL = resolve_ollama_model()
 analytics = NIRFAnalyticsEngine(df)
 visualizer = NIRFVisualizationEngine()
 question_learner = QuestionLearner()

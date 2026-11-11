@@ -7,6 +7,7 @@ No Python/SQL/eval expressions supplied by the model are executed.
 from __future__ import annotations
 
 import json
+import os
 from typing import Any
 
 import numpy as np
@@ -145,12 +146,21 @@ def should_use_dynamic_query(question_analysis: dict[str, Any],
 class DynamicQueryEngine:
     """Converts unseen NIRF questions to a safe plan and executes with pandas."""
 
-    def __init__(self, dataframe: pd.DataFrame, model: str = "qwen2.5:latest"):
+    def __init__(self, dataframe: pd.DataFrame, model: str | None = None):
         required = {"year", "category", "institute_key", "display_name", "state", "rank_num", "rank_status", "score"}
         missing = required.difference(dataframe.columns)
         if missing:
             raise ValueError(f"NIRF dataframe is missing required columns: {sorted(missing)}")
         self.df = dataframe.copy()
+        if model is None:
+            model = os.getenv("OLLAMA_MODEL")
+            if not model:
+                try:
+                    import ollama
+                    _ms = [m.model for m in ollama.list().models]
+                    model = next((m for m in _ms if "qwen" in m.lower()), _ms[0] if _ms else "qwen2.5:latest")
+                except Exception:
+                    model = "qwen2.5:latest"
         self.model = model
         self.df["year"] = pd.to_numeric(self.df["year"], errors="coerce")
         self.df["rank_num"] = pd.to_numeric(self.df["rank_num"], errors="coerce")
