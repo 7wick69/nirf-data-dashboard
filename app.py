@@ -81,6 +81,7 @@ from core.transitions import (
     q5_annual_mobility_summary,
 )
 from charts.transitions import (
+    plot_mover_slope_graph,
     plot_band_destination_bar,
     plot_mover_dumbbell,
     plot_band_transition_heatmap,
@@ -1808,6 +1809,7 @@ with tabs[6]:
                 chart_style = st.radio(
                     "Chart View",
                     [
+                        "Mover Slope Graph (Recommended)",
                         "Destination Breakdown (100% Bar)",
                         "Mover Dumbbell Chart",
                         "Transition Matrix Heatmap",
@@ -1939,7 +1941,19 @@ with tabs[6]:
                 )
 
             # Chart Visualization
-            if chart_style == "Destination Breakdown (100% Bar)":
+            if chart_style.startswith("Mover Slope Graph"):
+                fig_q1, takeaway_q1 = plot_mover_slope_graph(
+                    df=df_full,
+                    category=s7_category,
+                    y1=q1_y1,
+                    y2=q1_y2,
+                    from_band=from_band_choice,
+                    to_band=to_band_choice,
+                    state=s7_state,
+                    basis=s7_basis,
+                    band_rank_method=band_method,
+                )
+            elif chart_style == "Destination Breakdown (100% Bar)":
                 fig_q1, takeaway_q1 = plot_band_destination_bar(
                     df=df_full,
                     category=s7_category,

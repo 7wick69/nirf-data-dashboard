@@ -82,9 +82,223 @@ def _empty_figure_with_message(message: str) -> Tuple[Any, str]:
     return fig, message
 
 
+def shorten_institution_name(name: str, max_len: int = 30) -> str:
+    """Shortens common NIRF institution prefixes for clean, legible labels on slope charts."""
+    s = (
+        name.replace("Indian Institute of Technology", "IIT")
+        .replace("National Institute of Technology", "NIT")
+        .replace("Indian Institute of Science Education and Research", "IISER")
+        .replace("Indian Institute of Information Technology", "IIIT")
+        .replace("Indian Institute of Management", "IIM")
+        .replace("All India Institute of Medical Sciences", "AIIMS")
+        .replace("University", "Univ.")
+        .replace("Institute of", "Inst. of")
+        .replace("Technology", "Tech.")
+        .strip()
+    )
+    if len(s) > max_len:
+        return s[:max_len - 3] + "..."
+    return s
+
+
 # ---------------------------------------------------------
 # Question 1: Visualizations
 # ---------------------------------------------------------
+
+def plot_mover_slope_graph(
+    df: pd.DataFrame,
+    category: str = "Overall",
+    y1: int = 2023,
+    y2: int = 2024,
+    from_band: str = "51-100",
+    to_band: str = "Top 50",
+    state: Optional[str] = None,
+    basis: str = "Within selected state",
+    bands: Optional[List[Tuple[str, float, float]]] = None,
+    band_rank_method: str = "midpoint",
+    show_cohort_background: bool = True,
+) -> Tuple[Any, str]:
+    """
+    Q1 Primary Slope Graph Visualization:
+    Answers 'How many institutions moved from 51-100 band into the top 50?'
+    using an inverted slope chart tracking institutional rank breakthroughs across two years.
+
+    Visual Features:
+      - Inverted Y-axis (Rank 1 at the top, lower ranks at bottom): upward slope = climb/improvement.
+      - Top 50 threshold line (Rank 50.5) with shaded destination zone above it.
+      - Faint background cohort lines showing all other institutions starting in the origin band.
+      - Highlighted mover trajectories using distinct qualitative colors and marker symbols (redundant encoding).
+      - Left labels: starting rank badge. Right labels: ending rank, rank jump (+X), and institution name.
+      - Automated label de-collision if institutions tie at destination rank.
+      - Informative hover tooltips and automated analytical takeaway.
+    """
+    if not HAS_PLOTLY:
+        return None, "Plotly is required for visualization."
+
+    q1_res = q1_band_transition(
+        df, category, y1, y2, from_band=from_band, to_band=to_band,
+        state=state, basis=basis, bands=bands, band_rank_method=band_rank_method
+    )
+    movers = q1_res["movers_df"].copy()
+
+    if movers.empty:
+        return _empty_figure_with_message(
+            f"No institutions moved from {from_band} into {to_band} in '{category}' ({y1}→{y2})."
+        )
+
+    # Sort descending by rank_change (highest climbers first)
+    movers = movers.sort_values(by="rank_change", ascending=False).reset_index(drop=True)
+
+    fig = go.Figure()
+
+    # Determine cutoff threshold and destination label
+    if to_band == "Top 50":
+        target_cutoff = 50.5
+        cutoff_label = "Top 50 Threshold (Rank ≤ 50)"
+    elif to_band == "Top 10":
+        target_cutoff = 10.5
+        cutoff_label = "Top 10 Threshold (Rank ≤ 10)"
+    elif "-" in to_band:
+        try:
+            target_cutoff = float(to_band.split("-")[1]) + 0.5
+            cutoff_label = f"{to_band} Threshold"
+        except Exception:
+            target_cutoff = 50.5
+            cutoff_label = f"{to_band} Threshold"
+    else:
+        target_cutoff = 50.5
+        cutoff_label = f"{to_band} Threshold"
+
+    # 1. Shaded destination zone (Top tier: Rank 1 down to cutoff)
+    fig.add_hrect(
+        y0=1.0,
+        y1=target_cutoff,
+        fillcolor="rgba(16, 185, 129, 0.05)",
+        line_width=0,
+        layer="below",
+    )
+
+    # 2. Background cohort context slopes (other institutions starting in from_band)
+    if show_cohort_background:
+        merged = compare_two_years(
+            df, category, y1, y2, state=state, basis=basis, bands=bands, band_rank_method=band_rank_method
+        )
+        origin_cohort = merged[merged["band_y1"] == from_band].copy()
+        mover_names = set(movers["name"])
+        non_movers = origin_cohort[~origin_cohort["name"].isin(mover_names)].copy()
+
+        for _, row in non_movers.iterrows():
+            r1, r2 = row["rank_y1"], row["rank_y2"]
+            if pd.notna(r1) and pd.notna(r2):
+                fig.add_trace(
+                    go.Scatter(
+                        x=[y1, y2],
+                        y=[r1, r2],
+                        mode="lines",
+                        line=dict(color="rgba(100, 116, 139, 0.18)", width=1.2),
+                        hoverinfo="skip",
+                        showlegend=False,
+                    )
+                )
+
+    # 3. Movers Slopes with Redundant Encoding (distinct hue + marker symbol)
+    for idx, row in movers.iterrows():
+        color = QUALITATIVE_PALETTE[idx % len(QUALITATIVE_PALETTE)]
+        sym = MARKER_SYMBOLS[idx % len(MARKER_SYMBOLS)]
+        r1, r2 = row["rank_y1"], row["rank_y2"]
+        rc = row["rank_change"]
+        name = row["name"]
+        short_name = shorten_institution_name(name, 28)
+        state_str = str(row.get("state", ""))
+
+        # Stagger text position if multiple movers share the same destination rank
+        same_y2 = movers[movers["rank_y2"] == r2]
+        if len(same_y2) > 1:
+            idx_in_tie = list(same_y2.index).index(idx)
+            pos_right = "top right" if idx_in_tie == 0 else ("bottom right" if idx_in_tie == 1 else "middle right")
+        else:
+            pos_right = "middle right"
+
+        fig.add_trace(
+            go.Scatter(
+                x=[y1, y2],
+                y=[r1, r2],
+                mode="lines+markers+text",
+                name=short_name,
+                line=dict(color=color, width=3.2),
+                marker=dict(size=10, symbol=sym, color=color, line=dict(color="#ffffff", width=1.2)),
+                text=[f"#{int(r1)}", f"  #{int(r2)} (+{int(rc)}) {short_name}"],
+                textposition=["middle left", pos_right],
+                textfont=dict(color=TEXT_COLOR, size=11, family="Inter, sans-serif"),
+                hovertemplate=(
+                    f"<b>{name}</b> ({state_str})<br>"
+                    f"Rank in {y1}: #{int(r1)} ({from_band})<br>"
+                    f"Rank in {y2}: #{int(r2)} ({to_band})<br>"
+                    f"Rank Climb: <b>+{int(rc)} places</b><br>"
+                    f"Status: Promoted into {to_band}<extra></extra>"
+                ),
+                showlegend=False,
+            )
+        )
+
+    # 4. Target threshold line
+    fig.add_hline(
+        y=target_cutoff,
+        line=dict(color="#38bdf8", width=1.5, dash="dash"),
+        annotation_text=f"▲ {cutoff_label}",
+        annotation_position="top left",
+        annotation_font=dict(color="#38bdf8", size=10.5, family="Inter, sans-serif"),
+    )
+
+    all_ranks = list(movers["rank_y1"]) + list(movers["rank_y2"]) + [target_cutoff]
+    min_rank = min(all_ranks)
+    max_rank = max(all_ranks)
+    min_y = max(1, min_rank - 6)
+    max_y = max_rank + 8
+
+    title_text = (
+        f"Mover Slope Graph: Institutional Breakthrough ({from_band} → {to_band}) [{y1} → {y2}]<br>"
+        f"<sup style='color:{MUTED_TEXT}; font-size:11px;'>{q1_res['subtitle']} | Colored Slopes = Promoted Institutions | Inverted Y: Upward = Improvement</sup>"
+    )
+
+    fig = apply_theme(
+        fig,
+        title=title_text,
+        xaxis_title="Ranking Year",
+        yaxis_title="NIRF Rank (Inverted: 1 is best)",
+        show_legend=False,
+    )
+
+    fig.update_xaxes(
+        tickvals=[y1, y2],
+        ticktext=[
+            f"<b>{y1}</b><br><span style='color:{MUTED_TEXT};font-size:11px;'>Origin ({from_band})</span>",
+            f"<b>{y2}</b><br><span style='color:{MUTED_TEXT};font-size:11px;'>Destination ({to_band})</span>",
+        ],
+        range=[y1 - 0.22, y2 + 0.65],
+    )
+    fig.update_yaxes(
+        autorange="reversed",
+        range=[max_y, min_y],
+    )
+    fig.update_layout(
+        height=max(460, len(movers) * 38 + 240),
+        margin=dict(l=65, r=220, t=65, b=65),
+    )
+
+    best_mover = movers.iloc[0]
+    n_movers = len(movers)
+    total_from = q1_res.get("kpi_total_from", 0)
+    rate_str = q1_res.get("kpi_rate_formatted", f"{n_movers} of {total_from}")
+    takeaway = (
+        f"<b>{n_movers}</b> institution(s) successfully climbed from {from_band} into {to_band} "
+        f"in '{category}' ({y1}→{y2}) — a transition rate of <b>{rate_str}</b>. "
+        f"Top climber: <b>{best_mover['name']}</b> surged <b>+{int(best_mover['rank_change'])} places</b> "
+        f"(from #{int(best_mover['rank_y1'])} to #{int(best_mover['rank_y2'])})."
+    )
+
+    return fig, takeaway
+
 
 def plot_band_destination_bar(
     df: pd.DataFrame,

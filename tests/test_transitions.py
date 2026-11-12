@@ -307,6 +307,7 @@ def test_chart_functions_produce_valid_takeaways():
 
     df = load_nirf_data()
     from charts.transitions import (
+        plot_mover_slope_graph,
         plot_band_destination_bar,
         plot_mover_dumbbell,
         plot_band_transition_heatmap,
@@ -319,7 +320,12 @@ def test_chart_functions_produce_valid_takeaways():
         plot_mobility_composition_bar,
     )
     
-    # Q1: 100% Destination Bar and Dumbbell
+    # Q1: Slope Graph, 100% Destination Bar and Dumbbell
+    fig_slope, t1_slope = plot_mover_slope_graph(df, "Overall", 2023, 2024)
+    assert len(t1_slope) > 10
+    assert "institution" in t1_slope.lower()
+    assert len(fig_slope.data) >= 3
+
     _, t1_bar = plot_band_destination_bar(df, "Overall", 2023, 2024)
     assert len(t1_bar) > 10
     assert "reached" in t1_bar.lower() or "institutions" in t1_bar.lower()
