@@ -1,8 +1,8 @@
 # NIRF Interactive Analytics Dashboard
 
-A modern, high-performance interactive analytics dashboard for NIRF (National Institutional Ranking Framework) rankings (2017–2025), built with **Streamlit**, **Plotly**, and **Pandas/NumPy**.
+A modern, high-performance interactive analytics dashboard and intelligence platform for the **National Institutional Ranking Framework (NIRF)** rankings (2017–2025), built with **Streamlit**, **Plotly**, and **Pandas/NumPy**, with an integrated local LLM natural language analytics assistant.
 
-Designed with a sleek, minimal, monochromatic dark theme.
+Designed with a sleek, minimal, monochromatic dark theme optimized for publication-grade visualization and exploratory analysis.
 
 ---
 
@@ -10,6 +10,7 @@ Designed with a sleek, minimal, monochromatic dark theme.
 
 ### 1. Prerequisites
 - Python 3.11+
+- (Optional for AI Chatbot) [Ollama](https://ollama.com/) with `qwen2.5` installed locally
 
 ### 2. Installation
 ```bash
@@ -25,28 +26,23 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Run the main dashboard
+### 3. Run the Dashboard
 ```bash
 streamlit run app.py
 ```
-Opens at **http://localhost:8501**. Navigate to the **Univariate** tab to explore Q1 – Q6.
+Opens in your browser at **http://localhost:8501**.
 
-### 4. Run the standalone Univariate app
+### 4. Run the Test Suite
 ```bash
-streamlit run univariate_app.py
-```
-Self-contained entry-point for the univariate module. Opens at **http://localhost:8501**.
-
-### 5. Run tests
-```bash
-PYTHONPATH=. pytest                        # all tests
-PYTHONPATH=. pytest tests/test_univariate.py -v  # univariate only
+PYTHONPATH=. pytest                    # Full test suite (332 tests)
+PYTHONPATH=. pytest tests/test_transitions.py -v   # Transitions module
+PYTHONPATH=. pytest tests/test_univariate.py -v    # Univariate module
 ```
 
-### 6. Run data cleaning pipeline
+### 5. Run Data Cleaning Pipeline
 ```bash
-python data_prep.py                        # uses default data/clean/data_nirf_clean2.csv
-python data_prep.py path/to/your_file.csv  # custom CSV
+python data_prep.py                        # Uses data/clean/data_nirf_clean2.csv
+python data_prep.py path/to/custom.csv     # Custom dataset
 ```
 
 ---
@@ -54,23 +50,23 @@ python data_prep.py path/to/your_file.csv  # custom CSV
 ## 📊 Dataset Overview
 
 | Property | Value |
-|----------|-------|
-| **Source** | nirfindia.org (all categories, 2017–2025) |
+|:---|:---|
+| **Source** | Official NIRF data (nirfindia.org, all categories 2017–2025) |
 | **Location** | `data/clean/data_nirf_clean2.csv` |
-| **Rows** | 6,866 ranked institution-year records |
-| **Institutions** | 923 unique |
-| **Years** | 2017 – 2025 (9 cycles) |
-| **Categories** | 15 (Overall, Engineering, University, College, Management, Medical, Pharmacy, Law, Architecture, Dental, Research, Agriculture and Allied Sectors, Innovation, Open University, Skill University) |
-| **Core Parameters** | TLR, RPC, GO, OI, PR |
+| **Records** | 6,866 ranked institution-year records |
+| **Institutions** | 923 unique higher education institutions |
+| **Years** | 2017 – 2025 (9 consecutive annual ranking cycles) |
+| **Categories** | 15 categories (Overall, Engineering, University, College, Management, Medical, Pharmacy, Law, Architecture, Dental, Research, Agriculture and Allied Sectors, Innovation, Open University, Skill University) |
+| **Core Parameters** | TLR, RPC, GO, OI, PR (each scored 0–100) |
 
-### Parameter Glossary
-| Code | Full Name |
-|------|-----------|
-| TLR | Teaching, Learning & Resources |
-| RPC | Research and Professional Practice |
-| GO  | Graduation Outcomes |
-| OI  | Outreach and Inclusivity |
-| PR  | Perception |
+### NIRF Parameter Glossary
+| Code | Parameter Name | Description |
+|:---|:---|:---|
+| **TLR** | Teaching, Learning & Resources | Faculty-student ratio, faculty qualifications, financial resources & utilization |
+| **RPC** | Research and Professional Practice | Publications, citations, patent quality, research funding |
+| **GO**  | Graduation Outcomes | Metric for university examinations and median graduate salary/placements |
+| **OI**  | Outreach and Inclusivity | Regional diversity, women representation, economically/socially challenged students |
+| **PR**  | Perception | Peer perception among employers, academics, and public survey |
 
 ---
 
@@ -78,236 +74,164 @@ python data_prep.py path/to/your_file.csv  # custom CSV
 
 ```
 nirf-data-dashboard/
-├── app.py                       # Main Streamlit app (10 tabs; global filters)
-├── univariate_app.py            # Standalone Streamlit entry-point for univariate module
-├── data_prep.py                 # ★ Standalone cleaning pipeline (NEW)
-├── univariate.py                # ★ Full univariate module with render_univariate_tab()
+├── app.py                       # Main Streamlit dashboard (10 integrated tabs)
+├── univariate_app.py            # Standalone entry-point for univariate module
+├── data_prep.py                 # Standalone data cleaning & normalization pipeline
 │
 ├── core/
-│   ├── data.py                  # Dataset loading + caching (load_nirf_data)
-│   ├── metrics.py               # Derived metrics engine (rank_change, zscore, etc.)
-│   ├── schema.py                # Pydantic v2 chart query spec schema
-│   └── safe_expr.py             # Safe AST arithmetic evaluator
+│   ├── data.py                  # Dataset loading, caching, and state/category filtering
+│   ├── metrics.py               # Derived metrics engine (rank shifts, z-scores, bands)
+│   ├── transitions.py           # Transition matrices, cohort tracking, and mobility logic
+│   ├── schema.py                # Pydantic chart query specification schema
+│   ├── safe_expr.py             # AST-constrained safe arithmetic expression evaluator
+│   └── executor.py              # Query plan execution engine
 │
 ├── charts/
-│   ├── theme.py                 # Minimalist Plotly dark theme (charcoal canvas, electric blue)
-│   ├── trends.py                # Trend visualizations (Rank trajectory, Delta, Scores, Top 10)
-│   ├── geo.py                   # Geospatial & Regional visualizations (Top 100 states, Choropleth, Delta, Boxplot, New Entrants)
-│   └── univariate.py            # ★ Univariate chart functions — 2-layer API
+│   ├── theme.py                 # Minimalist Plotly dark theme (#0f1013 canvas, zero-overlap legends)
+│   ├── trends.py                # Section 1: Time-series trajectories, improvers, decliners
+│   ├── geo.py                   # Section 2: India Choropleths & regional distribution
+│   ├── univariate.py            # Section 3: Score & rank distributions, rolling KDE, donuts
+│   ├── bivariate.py             # Section 4: Correlation scatter plots, regression lines
+│   ├── multivariate.py          # Section 5: Radar charts, quadrant scatter, disparity dumbbells
+│   ├── distribution_analysis.py # Section 6: Comprehensive parameter spread & skewness
+│   ├── transitions.py           # Section 7: Mover slope graphs, transition matrices, Sankey
+│   ├── outliers.py              # Section 8: Statistical anomaly detection (IQR, Z-score)
+│   ├── explore.py               # Level 2 Explore workbench (Tableau-style shelf builder)
+│   └── registry.py              # Central chart registry and metadata catalog
+│
+├── chatbot/
+│   ├── chat_service.py          # Conversational assistant orchestrator & prompt builder
+│   ├── dynamic_query.py         # Schema-constrained query planner with pandas execution
+│   ├── query_parser.py          # Intent classification and entity/slot extraction
+│   ├── visualization_engine.py  # Conversational Plotly chart generator
+│   └── analytics_engine.py      # Natural language analytical computations
+│
 ├── data/
 │   └── clean/
-│       ├── data_nirf_clean2.csv # Primary NIRF dataset
-│       └── institutions.parquet # Canonical institutions registry
+│       ├── data_nirf_clean2.csv # Normalized primary NIRF dataset
+│       └── institutions.parquet # Canonical institution master registry
 │
-├── tests/
-│   ├── test_metrics.py          # Derived metric tests
-│   ├── test_trends.py           # Trend chart tests
-│   └── test_univariate.py       # ★ Univariate module tests — 44 cases (NEW)
-│
-├── pipeline/
-│   ├── make_dummy_data.py       # Synthetic data generator (dev fallback)
-│   └── validate.py              # Data integrity validator
-│
-├── cleaned_nirf.csv             # Auto-generated by data_prep.py
-├── requirements.txt
-└── README.md
+└── tests/                       # Automated test suite (332 test cases)
+    ├── test_trends.py           # Trend visualization tests
+    ├── test_geo.py              # Geospatial analysis tests
+    ├── test_univariate.py       # Univariate distribution tests
+    ├── test_bivariate.py        # Bivariate correlation tests
+    ├── test_multivariate_q5_3.py# Multivariate quadrant & dumbbell tests
+    ├── test_transitions.py      # Transitions, slope charts, and mobility tests
+    ├── test_outliers.py         # Anomaly detection tests
+    ├── test_explore.py          # Explore workbench tests
+    ├── test_dynamic_query.py    # Chatbot query planning tests
+    └── ...
 ```
 
 ---
 
-## 📈 Trend Analysis Module (`charts/trends.py`)
+## 🖥️ Modules & Analytics Capabilities
 
-1. **Rank Trajectory Over Time:**
-   - Plots an institution's historical ranking with an **inverted Y-axis** (Rank 1 at the top).
-   - Dynamic hovertooltips displaying Rank, Score, and Year-over-Year movement.
-   - **Automated Takeaway:** e.g., *"rank improved from 2 to 1 (+1 places) over 9 years"* for IIT Madras.
-2. **Greatest Rank Improvers:**
-   - Identifies and ranks the top climbing institutions between user-selected years, reactive to state and category filters.
-3. **Largest Rank Decliners:**
-   - Identifies institutions experiencing the steepest ranking drops over the 9-year span.
-4. **Average Score Trajectory:**
-   - Multi-year progression of mean score. When a specific state is selected, automatically overlays the national All-India average as a comparative benchmark.
-5. **Consistently Top-Ranked Institutions (Multi-Line Bump Chart):**
-   - When "All states" is selected, tracks perennial national Top 10 contenders.
-   - When a specific state is chosen, dynamically calculates the **Top 10 institutions within that state** (preventing empty states).
-   - Adheres strictly to textbook visualization rules: ColorBrewer/Okabe-Ito 10-class qualitative palette, redundant marker symbols, and right-aligned legend margin to eliminate title-legend collisions.
+The dashboard is structured into 10 dedicated analytical tabs:
+
+### 1. Trends (`charts/trends.py`)
+- **Rank Trajectories:** Multi-year line plots with inverted Y-axis (Rank 1 at the top).
+- **Greatest Improvers & Decliners:** Top climbing and declining institutions across custom time horizons.
+- **Score Progression:** Multi-year score trends benchmarked against All-India averages.
+- **Consistently Top-Ranked:** Multi-line bump chart tracking perennial national Top-10 contenders with redundant geometric marker encoding.
+
+### 2. Geospatial & Regional Analysis (`charts/geo.py`)
+- Synchronized **side-by-side layout** pairing an interactive India Choropleth map with companion statistical visualizations:
+  - **Top 100 Density:** State-wise concentration of India's elite institutions.
+  - **Geographic Evolution:** Year-by-year expansion of higher education hubs.
+  - **Net Representation Delta:** Diverging maps and slope charts showing emerging states.
+  - **Regional Head-to-Head:** Direct comparative violin and box plots (e.g. Karnataka vs. Tamil Nadu).
+  - **New Entrant Incubators:** Geographic distribution of newly appearing institutions ($Y_{first} > 2017$).
+
+### 3. Univariate Distributions (`charts/univariate.py`)
+- **Score Distribution:** Histograms with rolling-window smoothed density curve overlay, median, and mean reference lines.
+- **Rank Distributions:** Histogram paired with 100% stacked tier breakdown (`1–10`, `11–50`, `51–100`, `101+`).
+- **Summary Statistics:** Multi-year interactive data tables with mean, standard deviation, median, and IQR.
+- **Quartile Share Donut:** Interactive donut chart displaying score boundaries and slice percentages.
+- **Category Spreads & Violins:** Comparative box plots with standard deviation diamonds and parameter violin plots.
+
+### 4. Bivariate Correlations (`charts/bivariate.py`)
+- Parameter vs. Score and Parameter vs. Rank relationships across all 5 NIRF parameters.
+- Regression trend lines, Pearson correlation coefficients, and state-level scatter breakdowns.
+
+### 5. Multivariate Analysis (`charts/multivariate.py`)
+- **Radar & Grouped Bar Charts:** Multi-dimensional parameter profiles for Top-5 institutions.
+- **Teaching vs. Perception Quadrant Scatter ($X = \text{TLR}, Y = \text{PR}$):**
+  - Isolates institutions with strong teaching fundamentals lagging in national perception.
+  - Percentile-based threshold crosshairs to address the extreme right-skewness of NIRF Perception scores.
+  - Shaded target quadrant with arrow callouts for top disparity outliers.
+- **Ranked Disparity Companion:** Horizontal dumbbell charts and diverging gap bars sorted by percentile disparity ($\text{gap} = \text{TLR \%ile} - \text{PR \%ile}$).
+
+### 6. Distribution Analysis (`charts/distribution_analysis.py`)
+- Detailed skewness, kurtosis, and dispersion measurements across disciplines and cycles.
+- Multi-parameter distribution comparisons highlighting evaluation asymmetries.
+
+### 7. Transitions & Mobility (`charts/transitions.py`)
+- **Mover Slope Graph:** Dedicated slope chart tracking institutions breaking across tiers (e.g., 51–100 into the Top 50):
+  - Inverted Y-axis where upward slope indicates rank improvement.
+  - Labeled threshold line (Rank 50.5) and shaded destination tier.
+  - Redundant encoding (distinct qualitative hues + distinct geometric marker symbols).
+  - Faint background cohort context lines displaying non-moving peers.
+- **Destination Breakdown (100% Stacked Bar):** Cohort destination shares (Moved to Target, Stayed in Band, Moved to Other Bands, Dropped Out).
+- **Transition Matrix Heatmap:** Cross-tabulation of origin vs. destination bands with zero cells blank.
+- **Sankey Flow Diagram:** Multi-tier institutional mobility flows across consecutive years.
+
+### 8. Outliers & Anomalies (`charts/outliers.py`)
+- **IQR & Z-Score Detection:** Identifies performance outliers within each discipline and parameter.
+- **Parameter Disparity:** Flags institutions with extreme gaps between their highest and lowest parameters (e.g. high research but near-zero perception).
+
+### 9. Explore Workbench (`charts/explore.py`)
+- Tableau-style self-service visualization builder:
+  - **Shelves:** Columns (X), Rows (Y), Color, and Facet.
+  - **Mark Types:** Automatic, Bar, Line, Scatter, Area, Box Plot, Histogram, and Table.
+  - **Aggregation Controls:** `None (raw rows)`, `Mean`, `Median`, `Sum`, `Max`, `Min`, `Count`, `Std`.
+  - **Built-in Presets:** Quick one-click configurations for common analytical inquiries.
+  - **Live Data Inspection:** Expandable table showing the exact transformed DataFrame and Plotly figure specification.
+
+### 10. Ask AI Assistant (`chatbot/`)
+- Natural-language query interface powered by local Ollama models (e.g., `qwen2.5`) with automatic fallback to deterministic parsing.
+- Safe execution architecture: LLM only plans a schema-bounded JSON query; all calculations, filtering, and aggregations are executed deterministically via pandas.
+- Renders conversational summaries accompanied by interactive Plotly visualizations and data tables.
 
 ---
 
-## 🔬 Univariate Analysis Module (`charts/univariate.py`)
+## 📌 Data Cleaning & Methodology
 
-### Questions answered (Annexure A, Section 3)
+The data pipeline in `data_prep.py` and `core/data.py` enforces rigorous standardization:
 
-| Tab | Question | Chart | Why this chart? |
-|-----|----------|-------|-----------------|
-| **Q1** | What is the distribution of NIRF scores for a selected year? | **Histogram + rolling-window KDE curve** | Histogram shows the full distribution shape, skew, and outliers. The smoothed overlay reveals the dominant mode without requiring SciPy. Mean (green dashed) and median (amber dotted) reference lines make central tendency visible at a glance. |
-| **Q2** | What is the distribution of ranks across institutions? | **Rank histogram + 100 % stacked band-bar** | The histogram exposes clustering (e.g. many institutions at the band lower-bound 101). The stacked bar translates raw ranks into NIRF's own tier vocabulary, which is what examiners ask about. |
-| **Q3** | What are the summary statistics by year? | **Plotly Table** (year-by-year) | A table is the clearest medium for comparing exact numbers across all years simultaneously — faster to read than sparklines when precise figures matter in a viva. |
-| **Q4** | What % of institutions fall into each score quartile? | **Donut chart** (score-computed quartiles) | Donut immediately communicates relative proportions; the Q4 (top 25 %) slice stands out visually. The donut center shows the exact Q1/Q2/Q3 score boundaries so the chart is self-documenting. |
-| **Q5** | How does score spread differ across NIRF categories? | **Box plots** (`boxmean="sd"`) | Box plots provide a compact multi-category spread comparison. The mean diamond (from `boxmean="sd"`) distinguishes skewed from symmetric distributions without cluttering the chart. |
-| **Q6** | How is each sub-parameter (TLR, RPC, GO, OI, PR) distributed? | **Violin + embedded box** | Violin shows the density *shape* (revealing bimodal or heavily skewed parameters), while the embedded box still provides Q1/Q3/median concisely. Switchable to plain box for simpler explanation. |
+1. **Rank-Band Handling:**
+   NIRF publishes non-top ranks in bands (e.g., `"101–150"`, `"151–200"`).
+   - `Rank_Original`: Preserves the exact published string.
+   - `Rank_Numeric`: Parsed using the band **midpoint** (e.g., `125.0` for `101–150`) to avoid systematic bias toward lower or upper boundaries. Open-ended bands like `"301+"` use the lower bound (`301.0`).
+   - `Is_Band_Rank`: Boolean flag marking banded ranks.
+2. **Missing Values Policy:**
+   Missing parameters (`TLR`, `RPC`, `GO`, `OI`, `PR`) are preserved as `NaN` rather than imputed with zero, preventing artificial skewing of statistical means, medians, and correlations.
+3. **State & Name Normalization:**
+   Institution and state names are normalized via dictionary mappings (`Orissa → Odisha`, standardized IIT/NIT naming conventions) to maintain historical continuity across all 9 cycles.
+4. **Safe Arithmetic Derivations:**
+   Custom expressions and metric calculations use Python's `ast` module (`core/safe_expr.py`), restricting execution strictly to safe arithmetic without `eval()` or arbitrary execution.
 
-### Reusable function API
+---
 
-`charts/univariate.py` exposes a two-layer API:
+## 🧪 Testing & Verification
 
-```python
-# ── LAYER 1: Pure functions (chatbot-callable, testable) ─────────────────────
-from charts.univariate import (
-    score_distribution,          # (df, year, category, bins, kde) → go.Figure
-    rank_distribution,           # (df, year, category) → (hist_fig, band_fig)
-    score_summary_stats,         # (df, year, category) → dict
-    score_summary_stats_all_years, # (df, category, year_range) → pd.DataFrame
-    score_quartile_share,        # (df, year, category) → (df_quartile, fig)
-    category_spread_comparison,  # (df, years, categories) → (stats_df, fig)
-)
+The test suite covers **332 test cases** across all modules with zero failures:
 
-# ── LAYER 2: app.py wrappers (return figure + takeaway string) ───────────────
-from charts.univariate import (
-    plot_score_distribution,     # (df, year, category, bins) → (fig, str)
-    plot_rank_distribution,      # (df, year, category, bins) → (fig, str)
-    plot_summary_statistics,     # (df, category, year_range) → (fig, str)
-    plot_rank_band_breakdown,    # (df, category, year_range) → (fig, str)
-    plot_score_spread_by_category, # (df, year, categories) → (fig, str)
-    plot_parameter_distribution, # (df, year, category, params, style) → (fig, str)
-)
+```bash
+PYTHONPATH=. pytest
+============================== 332 passed in 34.5s ==============================
 ```
 
-The Layer 1 functions are designed to be called by a future natural-language chatbot with parsed parameters.
-
----
-
-## 🧹 Data Cleaning (`data_prep.py`)
-
-`load_and_clean(filepath=None)` applies the following pipeline and returns `(df_clean, quality_report)`:
-
-| Step | Action |
-|------|--------|
-| 1 | Load CSV or Parquet (auto-detect; accepts file-like object from `st.file_uploader`) |
-| 2 | Rename raw columns → canonical output names |
-| 3 | Coerce `Year` to `int` — handles `"NIRF 2017"`, `"2017-18"`, plain `2017` |
-| 4 | Strip whitespace from all string columns |
-| 5 | Standardize state names (`Orissa → Odisha`, `Tamilnadu → Tamil Nadu`, etc.) |
-| 6 | Parse rank strings → `Rank_Numeric` + `Is_Band_Rank` flag |
-| 7 | Coerce `Score`, `TLR`, `RPC`, `GO`, `OI`, `PR` to `float` (errors → `NaN`) |
-| 8 | Remove duplicate rows (key: Year + Category + Institute_ID, keep first) |
-| 9 | Report missing values per column in `quality_report["missing_after"]` |
-| 10 | Save `cleaned_nirf.csv` to project root |
-
-Output columns:
-
-```
-Year, Category, Institute_ID, Institute_Name, City, State,
-Rank_Original, Rank_Numeric, Is_Band_Rank,
-Score, TLR, RPC, GO, OI, PR
-```
-
----
-
-## 📌 Assumptions & Design Decisions
-
-### Rank-band handling
-NIRF publishes some institutions in rank bands (e.g., "101–150"). Two columns are created:
-
-| Column | Value for `"101-150"` | Value for `"42"` |
-|--------|----------------------|-----------------|
-| `Rank_Original` | `"101-150"` | `"42"` |
-| `Rank_Numeric` | `125.0` (midpoint) | `42.0` |
-| `Is_Band_Rank` | `True` | `False` |
-
-**Midpoint rationale:** using the midpoint avoids systematic bias toward either the lower or upper bound of a band. For the special `"301+"` band (open-ended), the lower bound `301.0` is used because no upper bound is known.
-
-### Column schema duality
-`app.py` uses `load_nirf_data()` which produces **lower-case** columns (`year`, `category`, `name`, `state`, `rank`, `score`). `univariate_app.py` uses `load_and_clean()` which produces **capitalised** columns (`Year`, `Category`, `Institute_Name`, `State`, `Rank_Numeric`, `Score`). Every function in `charts/univariate.py` resolves both schemas via the `_col(df, "year", "Year")` helper, so the same code runs correctly in both contexts without modification.
-
-### Missing values policy
-Missing parameters (`TLR`, `RPC`, `GO`, `OI`, `PR`) are preserved as `NaN` rather than imputed with zero, preventing artificial skewing of statistical means and correlations.
-
-### Institution name standardization
-The `Institute_Name` column uses the `name` column from the source CSV (not `name_in_source`). This is the canonical form already standardized by the upstream pipeline. No further fuzzy-matching is applied by `data_prep.py` — that is handled by `core/data.py`.
-
-### State name normalization
-State names are normalized using an explicit lookup table (`_STATE_MAP` in `data_prep.py`). Unknown variants are left unchanged (title-case preserved).
-
-### Historical category gaps
-Some categories (e.g., `Skill University`, `Open University`) only appear from certain years. No category is silently dropped or merged. When a selected year/category yields an empty slice, every chart function returns a themed "no data" figure with a clear annotation — no crash, no confusing empty canvas.
-
-### Quartile computation
-Score quartile boundaries (Q1/Q2/Q3) are computed **from the selected year/category slice**, not from the global distribution. This ensures that "top 25%" refers to the top quartile *within that specific ranking context*, not globally.
-
----
-
-## 🗺️ Geospatial & Regional Visualizations (`charts/geo.py`)
-
-Each research question features a synchronized **side-by-side dashboard layout** pairing an interactive India Choropleth map with a complementary statistical chart:
-
-1. **Top States in Top 100:**
-   - **Left:** India Choropleth map showing state-wise Top 100 density.
-   - **Right:** Horizontal bar chart sorted by institution count with counts and percentage shares.
-2. **Geographical Distribution Evolution:**
-   - **Left:** Year-by-year India Choropleth map with year slider (2017–2025).
-   - **Right:** State-wise stacked bar chart showing multi-year evolution (2017–2025).
-3. **State Representation Improvement:**
-   - **Left:** Diverging Choropleth map (Emerald green for growth, Red for contraction).
-   - **Right:** Net representation delta bar chart or multi-state slope chart.
-4. **Regional Comparison (Karnataka vs. Tamil Nadu):**
-   - **Left:** Geographic focus map highlighting Karnataka and Tamil Nadu with median ranks.
-   - **Right:** Comparative Boxplot or Violin Plot with inverted Y-axis (#1 at top).
-5. **Newly Appearing Institutions by State:**
-   - **Left:** New institutional entrants density Choropleth map ($Y_{first} > 2017$).
-   - **Right:** State-wise new entrant incubator bar chart.
-
----
-
-| Metric | Formula |
-|--------|---------|
-| `rank_change` | $Rank_{prev} - Rank_{curr}$ (positive = improved) |
-| `score_change_yoy` | $Score_{curr} - Score_{prev}$ |
-| `rank_band` | Bracket: `1-10`, `11-50`, `51-100`, `101+` |
-| `years_in_top10` | Count of years with rank ≤ 10 |
-| `volatility` | $\sigma$ of rank across years |
-| `param_gap` | $\max(TLR,RPC,GO,OI,PR) - \min(\ldots)$ |
-| `best_param` / `worst_param` | argmax / argmin of the 5 parameters |
-| `score_zscore` | $(score - \mu_{cat,yr}) / \sigma_{cat,yr}$ |
-| `score_pct_rank` | Percentile rank within category-year |
-
----
-
-## 🧪 Testing
-
-```
-44 tests  —  44 passed  (Python 3.13, pytest 9.2)
-```
-
-| Test class | Coverage |
-|------------|----------|
-| `TestScoreQuartileShare` | % sum = 100 %, 4 quartiles, correct labels, empty safety |
-| `TestScoreSummaryStats` | required keys, [0,100] bounds, min≤mean≤max, empty safety |
-| `TestScoreSummaryStatsAllYears` | columns, sort order, year-range filter, year coverage |
-| `TestCategorySpreadComparison` | columns, 1 row per cat, Std Dev ≥ 0, IQR ≥ 0 |
-| `TestRankDistribution` | returns 2 figures, all-years mode, traces present |
-| `TestScoreDistribution` | figure returned, KDE adds trace, empty safe |
-| `TestPlotWrappers` | all 7 app.py functions return (Figure, str) |
-| `TestDataQuality` | ≥6000 rows, all 9 years, Overall present, scores in [0,100] |
-
----
-
-## 📈 Interactive Features
-
-- **Sidebar filters:** Year (single-select), Category (selectbox), State (multiselect), Histogram bins slider
-- **Download buttons:** CSV export of displayed data, HTML export of charts
-- **Tooltips:** Every chart has meaningful hover templates with institution names, scores, and counts
-- **Takeaway cards:** Auto-generated one-sentence insight below each chart
-- **Graceful empty handling:** Friendly "No data for selected filters" message — no crashes
-- **Cache:** `st.cache_data` on the data loader; derived metrics computed once per session
-
----
-
-## 🎓 Viva Preparation Notes
-
-1. **Why inverted Y-axis in trend charts?** Rank 1 is the best outcome. Inverting ensures upward slopes = improvement — matches user intuition.
-2. **Why midpoint for band ranks?** Using `(lo + hi) / 2` avoids systematic over- or under-estimation when computing means and medians on mixed exact + band datasets. The original string is preserved in `Rank_Original` for transparency.
-3. **Why boxmean="sd" on box plots?** The mean diamond makes it easy to visually distinguish right-skewed distributions (mean > median) from symmetric ones within the same chart.
-4. **Why rolling-window smoothing instead of a true KDE?** A true KDE (via `scipy.stats.gaussian_kde`) requires an extra dependency and is overkill for a histogram overlay. A window-3 rolling mean on bin counts achieves the same visual goal with zero extra imports.
-5. **Missing Values Policy:** Parameters are kept as `NaN` rather than imputed with zero. Imputing zero would pull means downward and artificially inflate the range, corrupting distribution analysis.
-6. **Safe Evaluation:** Custom derivations use Python's `ast` module (`core/safe_expr.py`), whitelisting only basic arithmetic — prevents arbitrary code execution.
+| Test File | Focus Area |
+|:---|:---|
+| `test_trends.py` | Trajectory logic, rank delta calculations, bump charts |
+| `test_geo.py` | Choropleth mapping, state filtering, new entrant detection |
+| `test_univariate.py` | Distribution metrics, KDE smoothing, quartile donuts |
+| `test_bivariate.py` | Correlation matrices, scatter traces, regression fit |
+| `test_multivariate_q5_3.py` | TLR vs. PR quadrant scatter, percentile ranking, dumbbell charts |
+| `test_transitions.py` | Mover slope charts, transition matrices, Sankey flows |
+| `test_outliers.py` | Statistical outlier formulas (IQR, Z-score) |
+| `test_explore.py` & `test_explore_fuzz.py` | Tableau workbench shelf mapping, aggregations, fuzz testing |
+| `test_dynamic_query.py` | Chatbot schema validation, query planning, fallback mechanisms |
+| `test_metrics.py` | Derived metrics engine, year-over-year deltas, volatility |
